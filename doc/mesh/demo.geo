@@ -1,4 +1,4 @@
-lcar     = .02;
+lcar     = .05;
 Point(1) = {0., 0., 0., lcar};
 Point(2) = {1., 0., 0., lcar*2.0};
 Point(3) = {1., 1., 0., lcar};
