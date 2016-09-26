@@ -381,85 +381,6 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   """
   Dumps the mesh to XDMF format.
   """
-  cell_map = {
-      "Tri3":   4,
-      "Quad4":  5,
-      "Tetra4": 6,
-      "Pyra5":  7,
-      "Prism6": 8,
-      "Hexa8":  9}
-  if dataformat == "HDF":
-    hdf = pd.HDFStore(path + ".h5")
-  # NODES 
-  if dataformat == "XML":
-    nodes_string = "\n".join([11*" " + "{0} {1} {2}".format(row.x, row.y, row.z) 
-        for index, row in mesh.nodes.data.iterrows()])
-  elif dataformat == "HDF":
-    hdf.put("COORDS", mesh.nodes.data[list("xyz")])
-    nodes_string = 11*" " + "{0}.h5:/COORDS/block0_values".format(path)
-  # ELEMENTS
-  conn = []
-  lconn = 0
-  for index, row in mesh.elements.data.iterrows():
-    econn  = [row[k] for k in row.keys() if k.startswith("n") 
-              and pd.isnull(row[k]) == False]
-    econn  = [mesh.nodes.data.index.get_loc(l) for l in econn]
-    lconn += len(econn) +1
-    conn += [[cell_map[row.etype]] + econn]
-  elements_string = "\n".join([11*" " + " ".join([str(n)for n in c]) for c in conn])
-  
-  pattern = """<?xml version="1.0"?>
-<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
-<Xdmf Version="2.0" xmlns:xi="http://www.w3.org/2001/XInclude">
-   <Domain>
-     <Grid Name="Mesh">
-       <Topology TopologyType="Mixed" NumberOfElements="#ELEMENT_NUMBER">
-         <DataItem Format="XML" Dimensions="#CONN_DIMENSION">
-#CONN_PATH
-         </DataItem>
-       </Topology>
-       <Geometry GeometryType="XYZ">
-         <DataItem Format="#DATAFORMAT" Dimensions="#NODE_NUMBER 3">
-#NODE_PATH
-         </DataItem>
-       </Geometry>  
-     </Grid>
-   </Domain>
-</Xdmf>"""
-  pattern = pattern.replace("#ELEMENT_NUMBER", str(len(m2.elements.data)))
-  pattern = pattern.replace("#CONN_DIMENSION", str(lconn))
-  pattern = pattern.replace("#CONN_PATH", elements_string)
-  pattern = pattern.replace("#NODE_NUMBER", str(len(m2.nodes.data)))
-  pattern = pattern.replace("#NODE_PATH", nodes_string)
-  pattern = pattern.replace("#DATAFORMAT", dataformat)
-  open(path + ".xdmf", "wb").write(pattern)
-  if dataformat == "HDF":
-    print hdf
-    hdf.close() 
-
-################################################################################
-# TESTS
-################################################################################
-if __name__ == '__main__':
-  import time
-  print "# READING MESH"
-  t0 = time.time()
-  m2 = read_msh("../doc/mesh/demo.msh")
-  t1 =  time.time()
-  print "# => {0:.2f}s".format(t1-t0)
-  
-  print "# EXPORTING MESH"
-  """
-  write_xdmf(m2, "test", dataformat = "XML")
-  
-  """
-  
-  
-  # TESTS
-  mesh = m2
-  dataformat = "HDF"
-  path = "test"
-  
   #XDMF PATTERN
   pattern = """<?xml version="1.0"?>
 <!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
@@ -517,7 +438,7 @@ if __name__ == '__main__':
       c = connectivities[i]
       c = c[np.where(c != -1)]
       elements_string += " ".join([str(i) for i in c]) + "\n"
-    elements_string = element_string[:-1]  
+    elements_strings = elements_string[:-1]  
   
   elif dataformat == "HDF":
     hdf = pd.HDFStore(path + ".h5")
@@ -525,7 +446,6 @@ if __name__ == '__main__':
     flatconn = np.zeros(lconn, dtype = np.int32)
     pos = 0
     for i in xrange(Ne):
-      print i
       c = connectivities[i]
       c = c[np.where(c != -1)]
       lc = len(c)
@@ -544,9 +464,20 @@ if __name__ == '__main__':
   pattern = pattern.replace("#NODE_PATH", nodes_string)
   pattern = pattern.replace("#DATAFORMAT", dataformat)
   open(path + ".xdmf", "wb").write(pattern)
+
+################################################################################
+# TESTS
+################################################################################
+if __name__ == '__main__':
+  import time
+  print "# READING MESH"
+  t0 = time.time()
+  m2 = read_msh("../doc/mesh/demo.msh")
+  t1 =  time.time()
+  print "# => {0:.2f}s".format(t1-t0)
   
+  print "# EXPORTING MESH"
+  write_xdmf(m2, "test", dataformat = "HDF")
      
- 
-    
   t2 =  time.time()
   print "# => {0:.2f}s".format(t2-t1)  
