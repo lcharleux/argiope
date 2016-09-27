@@ -144,7 +144,7 @@ class Container(object):
      
 class Nodes(Container):
 
-  def __init__(self, labels, coords, *args, **kwargs):
+  def __init__(self, labels = None, coords = None, *args, **kwargs):
     self.data = pd.DataFrame(coords, columns = list("xyz"), index = labels)        
     Container.__init__(self, *args, **kwargs)  
 
@@ -153,22 +153,32 @@ class Nodes(Container):
     x, y, z = np.array(df.x), np.array(df.y), np.array(df.z)
     labels = np.array(df.index)
     self.add_set(tag, labels[func(x, y, z, labels)])
-     
+  
+  def save(self):
+    hdf = pd.HDFStore(self.master.h5path)
+    hdf["nodes/xyz"] = self.data
+    for k, s in self.sets.iteritems():
+      hdf["nodes/sets/{0}".format(k)] = s
+    hdf.close() 
     
 class Elements(Container):
 
-  def __init__(self, labels, etypes, connectivity, surfaces = {}, maxconn = 8, *args, **kwargs):
-    maxconn = max( maxconn, max([len(c) for c in connectivity]))
-    data = {"etype": etypes}
-    for i in range(maxconn): data["n{0}".format(i)] = []
-    for c in connectivity:
-      lc = len(c)
-      for i in range(maxconn):
-        if i >= lc: 
-          data["n{0}".format(i)] .append(np.nan)
-        else:
-          data["n{0}".format(i)] .append(c[i])   
-    self.data = pd.DataFrame(data, index = labels)
+  def __init__(self, labels = None, etypes =  None, connectivity = None, surfaces = {}, maxconn = 8, *args, **kwargs):
+    if connectivity != None: 
+      maxconn = max( maxconn, max([len(c) for c in connectivity]))
+      data = {"etype": etypes}
+      for i in range(maxconn): data["n{0}".format(i)] = []
+      for c in connectivity:
+        lc = len(c)
+        for i in range(maxconn):
+          if i >= lc: 
+            data["n{0}".format(i)] .append(np.nan)
+          else:
+            data["n{0}".format(i)] .append(c[i])
+      self.data = pd.DataFrame(data, index = labels)
+    else:
+      cols = ["n{0}".format(i) for i in range(maxconn)]            
+      self.data = pd.DataFrame(columns = cols)
     for tag, data in surfaces.iteritems(): self.add_surface(tag, data)
       
     Container.__init__(self, *args, **kwargs)       
@@ -186,6 +196,13 @@ class Elements(Container):
   def nvert(self):
     df = self.data
     return pd.Series([ELEMENTS[e]["nvert"] for e in df.etype], index = df.index)
+  
+  def save(self):
+    hdf = pd.HDFStore(self.master.h5path)
+    hdf["elements/connectivity"] = self.data
+    for k, s in self.sets.iteritems():
+      hdf["elements/sets/{0}".format(k)] = s
+    hdf.close()
   
   def to_faces(self):
     pass
@@ -210,7 +227,7 @@ class Mesh(object):
   def __repr__(self): return "*Nodes:\n{0}\n*Elements\n{1}".format(
                           str(self.nodes), str(self.elements))
   
-  def __init__(self, nlabels, coords, elabels, etypes, connectivity, nsets = {}, esets = {}, surfaces = {}, h5path = None, master = None):
+  def __init__(self, nlabels = None, coords = None, elabels = None, etypes = None, connectivity = None, nsets = {}, esets = {}, surfaces = {}, h5path = None):
     self.nodes    = Nodes(    labels = nlabels, coords = coords, sets = nsets, 
                               master = self)
     self.elements = Elements( labels = elabels, connectivity = connectivity, 
@@ -218,7 +235,15 @@ class Mesh(object):
                               surfaces = surfaces, master = self)
     self.h5path = h5path
 
-
+  def save(self):
+    """
+    Saves the mesh instance to the hdf store.
+    """
+    self.nodes.save()
+    self.elements.save()
+  
+  
+    
     
 class Model(object):
   """
@@ -231,6 +256,24 @@ class Model(object):
 ################################################################################
 # PARSERS
 ################################################################################
+def read_h5(h5path):
+  """
+  Reads a mesh saved in the HDF5 format.
+  """
+  hdf = pd.HDFStore(h5path)
+  m = Mesh()
+  m.elements.data = hdf["elements/connectivity"]
+  m.nodes.data    = hdf["nodes/xyz"]
+  for key in hdf.keys():
+    if key.startswith("/nodes/sets"):
+      k = key.replace("/nodes/sets", "")
+      m.nodes.sets[k] = hdf[key]
+    if key.startswith("/elements/sets"):
+      k = key.replace("/elements/sets", "")
+      m.elements.sets[k] = hdf[key]
+  return m
+  
+
 def read_msh(path):
   elementMap = { 1:"Line2",
                  2:"Tri3",
