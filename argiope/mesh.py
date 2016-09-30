@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-import StringIO
+import os, subprocess, inspect, StringIO, copy
+import argiope
+MODPATH = os.path.dirname(inspect.getfile(argiope))
 
 ################################################################################
 # CONSTANTS AND DEFINITIONS
@@ -133,13 +135,24 @@ class Container(object):
      self.fields = {}
      for tag, labels in sets.iteritems(): self.add_set(tag, labels)
    
-  def __repr__(self): return self.data.__repr__()
+  def __str__(self): 
+    return self.data.__repr__()
   
   def add_set(self, tag, labels):
     """
     Adds a set.
     """   
-    self.sets[tag] = pd.Series(labels) 
+    self.sets[tag] = set(labels) 
+  
+  def drop_set(self, tag):
+    """
+    Drops a set and all associated data.
+    """
+    dropped_labels = self.sets[tag]
+    labels  = set(self.data.index)
+    new_labels = labels - dropped_labels
+    self.data = self.data.loc[list(new_labels)]
+    del self.sets[tag]  
     
      
 class Nodes(Container):
@@ -147,7 +160,10 @@ class Nodes(Container):
   def __init__(self, labels = None, coords = None, *args, **kwargs):
     self.data = pd.DataFrame(coords, columns = list("xyz"), index = labels)        
     Container.__init__(self, *args, **kwargs)  
-
+  
+  def __repr__(self):
+    return "{0} Nodes ({1} sets)".format(len(self.data), len(self.sets))
+  
   def add_set_by_func(self, tag, func):
     df = self.data
     x, y, z = np.array(df.x), np.array(df.y), np.array(df.z)
@@ -158,7 +174,7 @@ class Nodes(Container):
     hdf = pd.HDFStore(self.master.h5path)
     hdf["nodes/xyz"] = self.data
     for k, s in self.sets.iteritems():
-      hdf["nodes/sets/{0}".format(k)] = s
+      hdf["nodes/sets/{0}".format(k)] = pd.Series(list(s))
     hdf.close() 
     
 class Elements(Container):
@@ -179,11 +195,15 @@ class Elements(Container):
     else:
       cols = ["n{0}".format(i) for i in range(maxconn)]            
       self.data = pd.DataFrame(columns = cols)
-    for tag, data in surfaces.iteritems(): self.add_surface(tag, data)
-      
+    self.surfaces = {}
+    for tag, data in surfaces.iteritems(): 
+      self.add_surface(tag, data)
     Container.__init__(self, *args, **kwargs)       
   
-  def add_surface(surface, tag, data):
+  def __repr__(self):
+    return "{0} Elements  ({1} sets, {2} surfaces)".format(len(self.data), len(self.sets), len(self.surfaces))
+  
+  def add_surface(self, tag, data):
     """
     Adds a surface.
     """   
@@ -201,15 +221,49 @@ class Elements(Container):
     hdf = pd.HDFStore(self.master.h5path)
     hdf["elements/connectivity"] = self.data
     for k, s in self.sets.iteritems():
-      hdf["elements/sets/{0}".format(k)] = s
+      hdf["elements/sets/{0}".format(k)] = pd.Series(list(s))
+    for k, s in self.surfaces.iteritems():
+      hdf["elements/surfaces/{0}".format(k)] = s
+    
     hdf.close()
   
-  def to_faces(self):
-    pass
+  def faces(self):
+    """
+    Returns the faces of the elements.
+    """
+    data = self.data
+    element_faces = []
+    face_labels   = []
+    face_number   = []
+    element_labels = np.array(data.index)
+    conn_keys = self._connectivity_keys()
+    element_connectivity = np.array(data[conn_keys])
+    element_etype        = np.array(data.etype)
+
+    for i in xrange(len(element_labels)):
+      etype = element_etype[i]
+      conn  = element_connectivity[i]
+      label = element_labels[i]
+      if   ELEMENTS[etype]["space"] == 1:
+        faces = []
+      elif   ELEMENTS[etype]["space"] == 2:
+        faces = ELEMENTS[etype]["edges"]
+      elif ELEMENTS[etype]["space"] == 3:
+        faces = ELEMENTS[etype]["faces"]
+      fn = 0
+      for face in faces:
+        element_faces.append(set(np.int32(conn[face])))
+        face_labels.append(label)
+        face_number.append(fn)
+        fn += 1
+    return face_labels, face_number, element_faces
   
+     
   def to_polycollection(self):
     pass
-      
+  
+  def _connectivity_keys(self):
+    return ["n{0}".format(i) for i in xrange(self.data.shape[1]-1)]      
 
 def ScalarField(object):
   def __init__(self, labels, time, values, master = None):
@@ -224,8 +278,8 @@ def ScalarField(object):
 """  
   
 class Mesh(object):
-  def __repr__(self): return "*Nodes:\n{0}\n*Elements\n{1}".format(
-                          str(self.nodes), str(self.elements))
+  def __repr__(self): return "<Mesh: {0} / {1}>".format(
+                          self.nodes.__repr__(), self.elements.__repr__())
   
   def __init__(self, nlabels = None, coords = None, elabels = None, etypes = None, connectivity = None, nsets = {}, esets = {}, surfaces = {}, h5path = None):
     self.nodes    = Nodes(    labels = nlabels, coords = coords, sets = nsets, 
@@ -242,8 +296,30 @@ class Mesh(object):
     self.nodes.save()
     self.elements.save()
   
+  def to_inp(self, path = None, element_map = {}):
+    return write_inp(self, path, element_map)
   
+  def element_set_to_node_set(self, tag):
+    """
+    Makes a node set from an element set.
+    """
+    keys = self.elements._connectivity_keys()
+    eset = list(self.elements.sets[tag])
+    labels = np.array(list(set(self.elements.data.loc[eset][keys].as_matrix().flatten())))
+    labels = labels[np.isnan(labels) == False].astype(np.int32)
+    labels.sort()
+    self.nodes.add_set(tag, labels)
     
+  def node_set_to_surface(self, tag):
+    """
+    Converts a node set to surface.
+    """
+    elabels, flabels, faces = self.elements.faces()
+    nset = self.nodes.sets[tag]
+    surf = []
+    for i in xrange(len(faces)):
+      if nset.issuperset(faces[i]): surf.append((elabels[i], flabels[i]))
+    self.elements.add_surface(tag, surf)
     
 class Model(object):
   """
@@ -266,11 +342,15 @@ def read_h5(h5path):
   m.nodes.data    = hdf["nodes/xyz"]
   for key in hdf.keys():
     if key.startswith("/nodes/sets"):
-      k = key.replace("/nodes/sets", "")
-      m.nodes.sets[k] = hdf[key]
+      k = key.replace("/nodes/sets/", "")
+      m.nodes.sets[k] = set(hdf[key])
     if key.startswith("/elements/sets"):
-      k = key.replace("/elements/sets", "")
-      m.elements.sets[k] = hdf[key]
+      k = key.replace("/elements/sets/", "")
+      m.elements.sets[k] = set(hdf[key])
+    if key.startswith("/elements/surfaces"):
+      k = key.replace("/elements/surfaces/", "")
+      m.elements.surfaces[k] = set(hdf[key])
+  
   return m
   
 
@@ -300,13 +380,14 @@ def read_msh(path):
                    sep = " ",
                    names = ["labels", "x", "y", "z"])
   
-  elements = {"labels":[], "etype":[], "conn": [], "tags":[]}
+  elements = {"labels":[], "etype":[], "conn": [], "tags":[], "sets":{}}
   for line in lines[locs["elements"][0]+2:locs["elements"][1]]:
     d = np.array([int(w) for w in line.split()])
     elements["labels"].append( d[0] )
     elements["etype"].append(elementMap[d[1]] )
     elements["tags"].append( d[3: 3+d[2]] ) 
     elements["conn"].append(d[3+d[2]:])
+  elements["labels"] = np.array(elements["labels"])
   physicalNames = {}
   for line in lines[locs["physicalnames"][0]+2:locs["physicalnames"][1]]:
     w = line.split()
@@ -314,8 +395,9 @@ def read_msh(path):
   sets = {}
   tags = np.array([t[0] for t in elements["tags"]])
   for k in physicalNames.keys():
-    sets[physicalNames[k]] = [t == k for t in tags]     
-  elements["sets"] = sets  
+    sets[physicalNames[k]] = np.array([t == k for t in tags])     
+  for tag, values in sets.iteritems():
+    elements["sets"][tag] = elements["labels"][values]     
    
   return Mesh(nlabels = nodes["labels"], 
               coords = np.array(nodes[["x", "y", "z"]]),
@@ -424,26 +506,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   """
   Dumps the mesh to XDMF format.
   """
-  #XDMF PATTERN
-  pattern = """<?xml version="1.0"?>
-<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
-<Xdmf Version="2.0" xmlns:xi="http://www.w3.org/2001/XInclude">
-   <Domain>
-     <Grid Name="Mesh">
-       <Topology TopologyType="Mixed" NumberOfElements="#ELEMENT_NUMBER">
-         <DataItem Format="#DATAFORMAT" Dimensions="#CONN_DIMENSION">
-#CONN_PATH
-         </DataItem>
-       </Topology>
-       <Geometry GeometryType="XYZ">
-         <DataItem Format="#DATAFORMAT" Dimensions="#NODE_NUMBER 3">
-#NODE_PATH
-         </DataItem>
-       </Geometry>  
-     </Grid>
-   </Domain>
-</Xdmf>"""
-  
+  pattern = open(MODPATH + "/templates/mesh/xdmf.xdmf").read()
   # MAPPINGS
   cell_map = {
       "Tri3":   4,
@@ -507,6 +570,71 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   pattern = pattern.replace("#NODE_PATH", nodes_string)
   pattern = pattern.replace("#DATAFORMAT", dataformat)
   open(path + ".xdmf", "wb").write(pattern)
+
+def write_inp(mesh, path = None, element_map = {}, maxwidth = 80):
+  """
+  Exports the mesh to the INP format.
+  """
+  def set_to_inp(sets, keyword):
+    ss = ""
+    for tag, labels in sets.iteritems():
+      labels = list(labels)
+      labels.sort()
+      if len(labels)!= 0:
+        ss += "*{0}, {0}={1}\n".format(keyword, tag)
+        line = ""
+        counter = 0
+        for l in labels:
+          counter += 1
+          s = "{0},".format(l)
+          if (len(s) + len(line) < maxwidth) and counter <16:
+            line += s
+          else:
+            ss += line + "\n"
+            line = s
+            counter = 0
+        ss += line
+      ss += "\n"
+    return ss.strip()[:-1]            
+  pattern = pattern = open(MODPATH + "/templates/mesh/inp.inp").read()
+  # SURFACES 
+  surf_string = []
+  element_sets = copy.copy(mesh.elements.sets)
+  for tag, surface in mesh.elements.surfaces.iteritems():
+    surf_string.append( "*SURFACE, TYPE=ELEMENT, NAME={0}".format(tag))
+    faces = surface.face.unique()
+    for face in faces:
+      element_sets["_SURF_{0}_FACE{1}".format(tag, face+1)] =  set(
+                   surface[surface.face == face].element)
+      surf_string.append("  _SURF_{0}_FACE{1}, S{1}".format(tag, face+1)) 
+  pattern = pattern.replace("#ELEMENT_SURFACES", "\n".join(surf_string))                    
+  #NODES
+  pattern = pattern.replace("#NODES", 
+            mesh.nodes.data.to_csv(header = False).replace(",", ", ").strip())
+  #NODE SETS
+  pattern = pattern.replace("#NODE_SETS", set_to_inp(mesh.nodes.sets, "NSET"))
+  # ELEMENTS
+  conn_keys = mesh.elements._connectivity_keys()
+  elements = mesh.elements.data
+  etypes = elements.etype.unique()
+  el_string = ""
+  for etype in etypes:
+    new_etype = etype
+    if etype in element_map.keys(): 
+      new_etype = element_map[etype]
+    el_string += "*ELEMENT, TYPE={0}, ELSET={0}_ELEMENTS\n".format(new_etype)
+    els = elements[conn_keys][elements.etype == etype]
+    els = els.to_csv(header = False, float_format='%.0f').split()
+    el_string += ",\n".join([s.strip(",").replace(",", ", ") for s in els])
+  pattern = pattern.replace("#ELEMENTS", el_string )
+  # ELEMENT SETS
+  pattern = pattern.replace("#ELEMENT_SETS", set_to_inp(element_sets, "ELSET"))
+  pattern = pattern.strip()
+  if path == None:            
+    return pattern
+  else:
+    open(path, "wb").write(pattern)
+  
 
 ################################################################################
 # TESTS
