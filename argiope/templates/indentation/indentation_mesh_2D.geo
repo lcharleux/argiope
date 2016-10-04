@@ -1,13 +1,13 @@
 // SETTINGS
-lx = 1.;
-ly = 1.;
-r1 = 2.;
-r2 = 100.;
-Nx = 32;
-Ny = 16;
+lx = #LX;
+ly = #LY;
+r1 = #R1;
+r2 = #R2;
+Nx = #NX;
+Ny = #NY;
 lc0 = ly/Ny;
-lc1 = 0.1;
-lc2 = 20.;
+lc1 = #LC1;
+lc2 = #LC2;
 
 Point(1) = {0.,  0., 0., lc0};
 Point(2) = {0,  -ly, 0., lc0};
