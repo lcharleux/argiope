@@ -265,36 +265,42 @@ class Elements(Container):
   def _connectivity_keys(self):
     return ["n{0}".format(i) for i in xrange(self.data.shape[1]-1)]      
 
-def ScalarField(object):
-  def __init__(self, labels, time, values, master = None):
-    self.data = pd.DataFrame({"label":labels, "time": time, "value": values})
+class Field(object):
+  def __init__(self, info = None, data = None, master = None):
+    if info == None: info = {}
+    self.info = pd.Series(info)
+    self.data = pd.DataFrame(data)
     self.master = master
-  
-"""
-def ScalarField(object):
-  def __init__(self, labels, time, values, master = None):
-    self.data = pd.DataFrame({"label":labels, "time": time, "value": values})
-    self.master = master
-"""  
-  
+
+  def save(self, tag): 
+    hdf = pd.HDFStore(self.master.h5path)
+    hdf["fields/{0}/data".format(tag)] = self.data
+    hdf["fields/{0}/info".format(tag)] = self.info
+    hdf.close()
+    
 class Mesh(object):
   def __repr__(self): return "<Mesh: {0} / {1}>".format(
                           self.nodes.__repr__(), self.elements.__repr__())
   
-  def __init__(self, nlabels = None, coords = None, elabels = None, etypes = None, connectivity = None, nsets = {}, esets = {}, surfaces = {}, h5path = None):
+  def __init__(self, nlabels = None, coords = None, elabels = None, etypes = None, connectivity = None, nsets = {}, esets = {}, surfaces = {}, fields = {}, h5path = None):
     self.nodes    = Nodes(    labels = nlabels, coords = coords, sets = nsets, 
                               master = self)
     self.elements = Elements( labels = elabels, connectivity = connectivity, 
                               etypes = etypes, sets = esets, 
                               surfaces = surfaces, master = self)
+    self.fields = {}
     self.h5path = h5path
 
-  def save(self):
+  def save(self, h5path = None):
     """
     Saves the mesh instance to the hdf store.
     """
+    if h5path != None:
+      self.h5path = h5path
     self.nodes.save()
     self.elements.save()
+    for tag, field in self.fields.iteritems():
+      field.save(tag= tag)
   
   def to_inp(self, path = None, element_map = {}):
     return write_inp(self, path, element_map)
@@ -321,11 +327,13 @@ class Mesh(object):
       if nset.issuperset(faces[i]): surf.append((elabels[i], flabels[i]))
     self.elements.add_surface(tag, surf)
     
-class Model(object):
-  """
-  A class to rule them all...
-  """
-  pass    
+  def add_field(self, tag, field):
+    """
+    Add a field to the mesh instance.
+    """
+    field.master = self
+    self.fields[tag] = field  
+    
 ################################################################################
     
 
@@ -337,7 +345,7 @@ def read_h5(h5path):
   Reads a mesh saved in the HDF5 format.
   """
   hdf = pd.HDFStore(h5path)
-  m = Mesh()
+  m = Mesh(h5path = h5path)
   m.elements.data = hdf["elements/connectivity"]
   m.nodes.data    = hdf["nodes/xyz"]
   for key in hdf.keys():
@@ -349,8 +357,16 @@ def read_h5(h5path):
       m.elements.sets[k] = set(hdf[key])
     if key.startswith("/elements/surfaces"):
       k = key.replace("/elements/surfaces/", "")
-      m.elements.surfaces[k] = set(hdf[key])
-  
+      m.elements.surfaces[k] = hdf[key]
+    if key.startswith("/fields/"):
+      if key.endswith("/info"):
+        tag = key.split("/")[2]
+        f = Field()
+        f.info = hdf["fields/{0}/info".format(tag)]
+        f.data = hdf["fields/{0}/data".format(tag)]
+        f.master = m
+        m.add_field(tag, f)
+  hdf.close()  
   return m
   
 
@@ -507,6 +523,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   Dumps the mesh to XDMF format.
   """
   pattern = open(MODPATH + "/templates/mesh/xdmf.xdmf").read()
+  attribute_pattern = open(MODPATH + "/templates/mesh/xdmf_attribute.xdmf").read()
   # MAPPINGS
   cell_map = {
       "Tri3":   4,
@@ -517,6 +534,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
       "Hexa8":  9}
   # REFERENCES
   nodes, elements = mesh.nodes.data, mesh.elements.data
+  fields = mesh.fields
   # NUMBERS
   Ne, Nn = len(elements), len(nodes)
   # NODES
@@ -532,12 +550,33 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   labels          = np.array(elements.index)
   etypes          = np.array([cell_map[t] for t in elements.etype])
   lconn           = Ne + (connectivities != -1).sum()
+  # FIELDS
+  fields_string = ""
+  fstrings = {}
+  for tag, field in fields.iteritems():
+      field.data.sort_index(inplace = True)
+      fstring = attribute_pattern.replace("#TAG", tag)
+      fshape = field.data.shape[1]
+      if   fshape  == 1: ftype = "Scalar"
+      elif fshape  == 3: ftype = "Vector"
+      elif fshape  == 4: ftype = "Tensor6"
+      fstring = fstring.replace("#ATTRIBUTETYPE", ftype)
+      if field.info.position == "Nodal":
+        fstring = fstring.replace("#POSITION", "Node") 
+      if field.info.position == "Element":
+        fstring = fstring.replace("#POSITION", "Cell")
+      fstring = fstring.replace("#FORMAT", dataformat)
+      fstring = fstring.replace("#FIELD_DIMENSION", 
+        " ".join([str(l) for l in field.data.shape]))
+      fstrings[tag] = fstring
   if dataformat == "XML":
+    #NODES
     nodes_string = "\n".join([11*" " + "{0} {1} {2}".format(
                               n.x, 
                               n.y, 
                               n.z) 
                         for i, n in nodes.iterrows()])
+    # ELEMENTS
     elements_string = ""
     for i in xrange(Ne):
       elements_string += 11*" " + str(etypes[i]) + " "
@@ -545,7 +584,15 @@ def write_xdmf(mesh, path, dataformat = "XML"):
       c = c[np.where(c != -1)]
       elements_string += " ".join([str(i) for i in c]) + "\n"
     elements_strings = elements_string[:-1]  
-  
+    # FIELDS
+    for tag, field in fields.iteritems():
+      fdata = field.data.to_csv(sep = " ", 
+                                index = False, 
+                                header = False).split("\n")
+      fdata = [11 * " " + l for l in fdata]
+      fdata = "\n".join(fdata)
+      fstrings[tag] = fstrings[tag].replace("#DATA", fdata)
+      fields_string += fstrings[tag]     
   elif dataformat == "HDF":
     hdf = pd.HDFStore(path + ".h5")
     hdf.put("COORDS", mesh.nodes.data[list("xyz")])
@@ -561,7 +608,11 @@ def write_xdmf(mesh, path, dataformat = "XML"):
     hdf.put("CONNECTIVITY", pd.DataFrame(flatconn))  
     nodes_string = 11*" " + "{0}.h5:/COORDS/block0_values".format(path)
     elements_string = 11*" " + "{0}.h5:/CONNECTIVITY/block0_values".format(path)
-    
+    for tag, field in fields.iteritems():
+      fstrings[tag] = fstrings[tag].replace("#DATA", 
+         11*" " + "{0}.h5:/FIELDS/{1}/block0_values".format(path, tag))
+      fields_string += fstrings[tag]         
+      hdf.put("FIELDS/{0}".format(tag), fields.data)
     hdf.close()
   pattern = pattern.replace("#ELEMENT_NUMBER", str(Ne))
   pattern = pattern.replace("#CONN_DIMENSION", str(lconn))
@@ -569,6 +620,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   pattern = pattern.replace("#NODE_NUMBER", str(Nn))
   pattern = pattern.replace("#NODE_PATH", nodes_string)
   pattern = pattern.replace("#DATAFORMAT", dataformat)
+  pattern = pattern.replace("#ATTRIBUTES", fields_string) 
   open(path + ".xdmf", "wb").write(pattern)
 
 def write_inp(mesh, path = None, element_map = {}, maxwidth = 80):

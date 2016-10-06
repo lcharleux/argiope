@@ -12,7 +12,8 @@
          <DataItem Format="#DATAFORMAT" Dimensions="#NODE_NUMBER 3">
 #NODE_PATH
          </DataItem>
-       </Geometry>  
+       </Geometry> 
+       #ATTRIBUTES 
      </Grid>
    </Domain>
 </Xdmf>

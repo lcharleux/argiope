@@ -1,6 +1,7 @@
 # abaqus_pde.deps
 # Used by Abaqus/PDE to save File Menu data
 #
+::Recent Traced Files
 ::Recent Main Files
 /home/lcharleux/Documents/Programmation/Python/Modules/argiope/doc/abq/abqpostproc/workdir/abpostproc.py
 ::Recent Files
@@ -23,4 +24,3 @@
 /opt/abaqus/scratch/6.13-1/tools/SMApy/python2.6/lib/python2.6/re.py
 /opt/abaqus/scratch/6.13-1/tools/SMApy/python2.6/lib/python2.6/sre_compile.py
 /opt/abaqus/scratch/6.13-1/tools/SMApy/python2.6/lib/python2.6/sre_parse.py
-::Recent Traced Files

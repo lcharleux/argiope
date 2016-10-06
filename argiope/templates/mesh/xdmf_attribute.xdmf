@@ -1,0 +1,5 @@
+       <Attribute Name="#TAG" AttributeType="#ATTRIBUTETYPE" Center="#POSITION">
+         <DataItem Format="#FORMAT" Dimensions="#FIELD_DIMENSION">
+           #DATA
+         </DataItem>
+       </Attribute>  
