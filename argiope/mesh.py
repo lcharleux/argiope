@@ -559,7 +559,22 @@ def write_xdmf(mesh, path, dataformat = "XML"):
       fshape = field.data.shape[1]
       if   fshape  == 1: ftype = "Scalar"
       elif fshape  == 3: ftype = "Vector"
-      elif fshape  == 4: ftype = "Tensor6"
+      elif fshape  == 2: 
+        ftype = "Vector"
+        # UGLY HACK...
+        field = copy.copy(field)
+        field.data["v3"] = np.zeros_like(field.data.index)
+        fields[tag] = field
+        # BACK TO NORMAL  
+      elif fshape  == 6: ftype = "Tensor6"
+      elif fshape  == 4: 
+        ftype = "Tensor6"
+        # UGLY HACK...
+        field = copy.copy(field)
+        field.data["v13"] = np.zeros_like(field.data.index)
+        field.data["v23"] = np.zeros_like(field.data.index)
+        fields[tag] = field
+        # BACK TO NORMAL  
       fstring = fstring.replace("#ATTRIBUTETYPE", ftype)
       if field.info.position == "Nodal":
         fstring = fstring.replace("#POSITION", "Node") 
