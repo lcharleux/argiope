@@ -463,13 +463,13 @@ def read_inp(path):
   etypes       = []
   connectivity = []
   esets        = {}
+  surfaces     = {}
   
   # File preprocessing
   lines = np.array([l.strip().lower() for l in open(path).readlines()])
   # Data processing
   env, setlabel = None, None
   for line in lines: 
-    #dold = d # keep track of previous line 
     d = lineInfo(line)
     if d["type"] == "command": 
       env = d["value"]
@@ -501,6 +501,14 @@ def read_inp(path):
         opt = d["options"]      
         currentset = opt["elset"]
         nsets[currentset] = []
+      
+      # Surfaces
+      if env == "surface":
+        opt = d["options"]
+        currentsurface = opt["name"]
+        if opt["type"] == "element":
+          surfaces[currentsurface] = []  
+                    
              
     if d["type"] == "data": 
       words = line.strip().split(",")
@@ -523,18 +531,32 @@ def read_inp(path):
         if currentset != None: esets[currentset].append(label)
       
       if env == "nset":
-         nsets[currentset] = [int(w) for w in words if len(w) != 0]   
+        nsets[currentset] = [int(w) for w in words if len(w) != 0]   
         
-      if env == "eset":
-         esets[currentset] = [int(w) for w in words if len(w) != 0]  
-              
+      if env == "elset":
+        esets[currentset] = [int(w) for w in words if len(w) != 0]  
+      
+      if env == "surface":
+        if opt["type"] == "element":
+          surfaces[currentsurface].append([w.strip() for w in words])
+  
+  surfaces2 = {}        
+  for tag, surface in surfaces.iteritems():
+    surfaces2[tag] = []
+    for sdata in surface:
+      labels = esets[sdata[0]]
+      face = int(sdata[1].split("s")[1].strip())-1
+      for label in labels:
+        surfaces2[tag].append((label, face))             
+  
   return Mesh(nlabels = nlabels,
               coords  = coords,
               nsets   = nsets,
               elabels = elabels,
               etypes  = etypes,
               connectivity = connectivity,
-              esets = esets)
+              esets = esets,)
+              #surfaces = surfaces2)
   
 ################################################################################
 # WRITERS
