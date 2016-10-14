@@ -3,17 +3,17 @@
 <Xdmf Version="2.0" xmlns:xi="http://www.w3.org/2001/XInclude">
    <Domain>
      <Grid Name="Mesh">
-       <Topology TopologyType="Mixed" NumberOfElements="#ELEMENT_NUMBER">
-         <DataItem Format="#DATAFORMAT" Dimensions="#CONN_DIMENSION">
-#CONN_PATH
+       <Topology TopologyType="Mixed" NumberOfElements="$ELEMENT_NUMBER">
+         <DataItem Format="$DATAFORMAT" Dimensions="$CONN_DIMENSION">
+$CONN_PATH
          </DataItem>
        </Topology>
        <Geometry GeometryType="XYZ">
-         <DataItem Format="#DATAFORMAT" Dimensions="#NODE_NUMBER 3">
-#NODE_PATH
+         <DataItem Format="$DATAFORMAT" Dimensions="$NODE_NUMBER 3">
+$NODE_PATH
          </DataItem>
        </Geometry> 
-       #ATTRIBUTES 
+       $ATTRIBUTES 
      </Grid>
    </Domain>
 </Xdmf>

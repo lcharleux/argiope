@@ -3,6 +3,8 @@ import pandas as pd
 import matplotlib as mpl
 import os, subprocess, inspect, StringIO, copy
 import argiope
+from string import Template
+
 MODPATH = os.path.dirname(inspect.getfile(argiope))
 
 ################################################################################
@@ -522,8 +524,8 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   """
   Dumps the mesh to XDMF format.
   """
-  pattern = open(MODPATH + "/templates/mesh/xdmf.xdmf").read()
-  attribute_pattern = open(MODPATH + "/templates/mesh/xdmf_attribute.xdmf").read()
+  pattern = Template(open(MODPATH + "/templates/mesh/xdmf.xdmf").read())
+  attribute_pattern = Template(open(MODPATH + "/templates/mesh/xdmf_attribute.xdmf").read())
   # MAPPINGS
   cell_map = {
       "Tri3":   4,
@@ -555,7 +557,6 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   fstrings = {}
   for tag, field in fields.iteritems():
       field.data.sort_index(inplace = True)
-      fstring = attribute_pattern.replace("#TAG", tag)
       fshape = field.data.shape[1]
       if   fshape  == 1: ftype = "Scalar"
       elif fshape  == 3: ftype = "Vector"
@@ -575,15 +576,17 @@ def write_xdmf(mesh, path, dataformat = "XML"):
         field.data["v23"] = np.zeros_like(field.data.index)
         fields[tag] = field
         # BACK TO NORMAL  
-      fstring = fstring.replace("#ATTRIBUTETYPE", ftype)
-      if field.info.position == "Nodal":
-        fstring = fstring.replace("#POSITION", "Node") 
+      if field.info.position == "Nodal": 
+        position = "Node"
       if field.info.position == "Element":
-        fstring = fstring.replace("#POSITION", "Cell")
-      fstring = fstring.replace("#FORMAT", dataformat)
-      fstring = fstring.replace("#FIELD_DIMENSION", 
-        " ".join([str(l) for l in field.data.shape]))
-      fstrings[tag] = fstring
+        position = "Cell"  
+      fstrings[tag] = attribute_pattern.safe_substitute(
+                                   TAG = tag,
+                                   ATTRIBUTETYPE = ftype,
+                                   FORMAT = dataformat,
+                                   FIELD_DIMENSION = 
+                                   " ".join([str(l) for l in field.data.shape]),
+                                   POSITION = position)
   if dataformat == "XML":
     #NODES
     nodes_string = "\n".join([11*" " + "{0} {1} {2}".format(
@@ -606,7 +609,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
                                 header = False).split("\n")
       fdata = [11 * " " + l for l in fdata]
       fdata = "\n".join(fdata)
-      fstrings[tag] = fstrings[tag].replace("#DATA", fdata)
+      fstrings[tag] = fstrings[tag].substitute(DATA = fdata)
       fields_string += fstrings[tag]     
   elif dataformat == "HDF":
     hdf = pd.HDFStore(path + ".h5")
@@ -629,6 +632,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
       fields_string += fstrings[tag]         
       hdf.put("FIELDS/{0}".format(tag), fields.data)
     hdf.close()
+  """
   pattern = pattern.replace("#ELEMENT_NUMBER", str(Ne))
   pattern = pattern.replace("#CONN_DIMENSION", str(lconn))
   pattern = pattern.replace("#CONN_PATH", elements_string)
@@ -636,6 +640,15 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   pattern = pattern.replace("#NODE_PATH", nodes_string)
   pattern = pattern.replace("#DATAFORMAT", dataformat)
   pattern = pattern.replace("#ATTRIBUTES", fields_string) 
+  """
+  pattern = pattern.substitute(
+     ELEMENT_NUMBER = str(Ne),
+     CONN_DIMENSION = str(lconn),
+     CONN_PATH      = elements_string,
+     NODE_NUMBER    = str(Nn),
+     NODE_PATH      = nodes_string,
+     DATAFORMAT     = dataformat,
+     ATTRIBUTES     = fields_string)
   open(path + ".xdmf", "wb").write(pattern)
 
 def write_inp(mesh, path = None, element_map = {}, maxwidth = 80):
@@ -663,7 +676,7 @@ def write_inp(mesh, path = None, element_map = {}, maxwidth = 80):
         ss += line
       ss += "\n"
     return ss.strip()[:-1]            
-  pattern = pattern = open(MODPATH + "/templates/mesh/inp.inp").read()
+  
   # SURFACES 
   surf_string = []
   element_sets = copy.copy(mesh.elements.sets)
@@ -674,12 +687,6 @@ def write_inp(mesh, path = None, element_map = {}, maxwidth = 80):
       element_sets["_SURF_{0}_FACE{1}".format(tag, face+1)] =  set(
                    surface[surface.face == face].element)
       surf_string.append("  _SURF_{0}_FACE{1}, S{1}".format(tag, face+1)) 
-  pattern = pattern.replace("#ELEMENT_SURFACES", "\n".join(surf_string))                    
-  #NODES
-  pattern = pattern.replace("#NODES", 
-            mesh.nodes.data.to_csv(header = False).replace(",", ", ").strip())
-  #NODE SETS
-  pattern = pattern.replace("#NODE_SETS", set_to_inp(mesh.nodes.sets, "NSET"))
   # ELEMENTS
   conn_keys = mesh.elements._connectivity_keys()
   elements = mesh.elements.data
@@ -693,9 +700,14 @@ def write_inp(mesh, path = None, element_map = {}, maxwidth = 80):
     els = elements[conn_keys][elements.etype == etype]
     els = els.to_csv(header = False, float_format='%.0f').split()
     el_string += ",\n".join([s.strip(",").replace(",", ", ") for s in els])
-  pattern = pattern.replace("#ELEMENTS", el_string )
-  # ELEMENT SETS
-  pattern = pattern.replace("#ELEMENT_SETS", set_to_inp(element_sets, "ELSET"))
+  # PATTERN
+  pattern = Template(open(MODPATH + "/templates/mesh/inp.inp").read())
+  pattern = pattern.substitute(
+    NODES     = mesh.nodes.data.to_csv(header = False).replace(",", ", ").strip(),
+    NODE_SETS = set_to_inp(mesh.nodes.sets, "NSET"),
+    ELEMENTS  = el_string,
+    ELEMENT_SETS = set_to_inp(element_sets, "ELSET"),
+    ELEMENT_SURFACES = "\n".join(surf_string))
   pattern = pattern.strip()
   if path == None:            
     return pattern
