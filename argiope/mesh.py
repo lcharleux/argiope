@@ -428,6 +428,7 @@ def read_inp(path):
   """
   Reads Abaqus inp file
   """
+  
   def lineInfo(line):
     out =  {"type": "data"}
     if line[0] == "*":
@@ -443,6 +444,7 @@ def read_inp(path):
           key, value =  [s.strip() for s in word.split("=")]
           out["options"][key] = value
     return out
+  
   def elementMapper(inpeltype):
     if inpeltype == "t3d2": return "Line2"
     if inpeltype[:3] in ["cps", "cpe", "cax"]:
@@ -454,15 +456,20 @@ def read_inp(path):
       if inpeltype[3] == "6": return "Prism6"
       if inpeltype[3] == "8": return "Hexa8"
     
-      
-  # Output mesh
-  m = Mesh()
+  nlabels      = []
+  coords       = []
+  nsets        = {}
+  elabels      = []
+  etypes       = []
+  connectivity = []
+  esets        = {}
+  
   # File preprocessing
   lines = np.array([l.strip().lower() for l in open(path).readlines()])
   # Data processing
-  env = None
-  setlabel = None
+  env, setlabel = None, None
   for line in lines: 
+    #dold = d # keep track of previous line 
     d = lineInfo(line)
     if d["type"] == "command": 
       env = d["value"]
@@ -470,51 +477,64 @@ def read_inp(path):
       if env == "node":
         opt = d["options"]
         currentset = None
-        if "nset" in opt.keys(): currentset = opt["nset"]
-          
+        if "nset" in opt.keys(): 
+          currentset = opt["nset"]
+          nsets[currentset] = []
+           
       # Elements
       if env == "element":
         opt = d["options"]
         eltype = elementMapper(opt["type"])
         currentset = None
-        if "elset" in opt.keys(): currentset = opt["elset"]
+        if "elset" in opt.keys(): 
+          currentset = opt["elset"]
+          esets[currentset] = []
           
       # Nsets
       if env == "nset":
         opt = d["options"]      
         currentset = opt["nset"]
+        nsets[currentset] = []
         
       # Elsets     
       if env == "elset":
         opt = d["options"]      
         currentset = opt["elset"]
+        nsets[currentset] = []
              
     if d["type"] == "data": 
       words = line.strip().split(",")
-      if env == "node": 
-        label  = int(words[0])
-        coords = np.array( [float(w) for w in words[1:]], dtype = np.float64 )
-        if currentset == None: 
-          m.nodes[label] = Node(coords = coords)
-        else:
-          m.nodes[label] = Node(coords = coords, sets = set([currentset]))  
+      if env == "node":
+        label = int(words[0]) 
+        nlabels.append(label) 
+        coords.append(
+            np.array([np.float64(w) for w in words[1:4]])
+                     )
+        if currentset != None: nsets[currentset].append(label)
             
+              
       if env == "element": 
         label  = int(words[0])
-        conn = np.array( [int(w) for w in words[1:]], dtype = np.int32)
-        if currentset == None: 
-          m.elements[label] = globals()[eltype](conn = conn)
-        else:
-          m.elements[label] = globals()[eltype](conn = conn, sets = set([currentset]))
+        elabels.append(label)
+        connectivity.append(
+            np.array( [np.int32(w) for w in words[1:] if len(w) != 0 ])
+                           )
+        etypes.append(eltype)                   
+        if currentset != None: esets[currentset].append(label)
       
-      if env == "nset": 
-        [m.nodes[int(w)].sets.add(currentset) for w in words if len(w) != 0]   
+      if env == "nset":
+         nsets[currentset] = [int(w) for w in words if len(w) != 0]   
         
-      if env == "elset": 
-        [m.elements[int(w)].sets.add(currentset) for w in words if len(w) != 0]         
-        
+      if env == "eset":
+         esets[currentset] = [int(w) for w in words if len(w) != 0]  
               
-  return m
+  return Mesh(nlabels = nlabels,
+              coords  = coords,
+              nsets   = nsets,
+              elabels = elabels,
+              etypes  = etypes,
+              connectivity = connectivity,
+              esets = esets)
   
 ################################################################################
 # WRITERS
