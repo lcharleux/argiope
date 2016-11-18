@@ -346,8 +346,7 @@ class Mesh(object):
     field.master = self
     self.fields[tag] = field  
   
-  def to_polycollection(self, edge_color = "black", face_color = "blue", 
-                              edge_width = .5, cmap = None):
+  def to_polycollection(self, *args, **kwargs):
     """
     Returns the mesh as matplotlib polygon collection. (tested only for 2D meshes)
     """                          
@@ -372,10 +371,7 @@ class Mesh(object):
       vert = np.array([coords[n] for n in face])
       verts.append(vert[:,:2])
     verts = np.array(verts)
-    patches = collections.PolyCollection(verts, 
-                        edgecolor = edge_color, 
-                        linewidth = edge_width, 
-                        cmap = cmap)
+    patches = collections.PolyCollection(verts, *args,**kwargs )
     return patches
   
   def centroids_and_volumes(self):
@@ -408,7 +404,33 @@ class Mesh(object):
     centroids = np.array(centroids)
     volumes   = np.array(volumes)
     return centroids, volumes
-    
+  
+  def to_triangulation(self):
+    """
+    Returns the mesh as a matplotlib.tri.Triangulation instance. (2D only)
+    """
+    nodes, elements = self.nodes.data, self.elements.data
+    #NODES
+    nodes_map = np.arange(nodes.index.max()+1)
+    nodes_map[nodes.index] = np.arange(len(nodes.index))
+    nodes_map[0] = -1
+    coords = nodes.as_matrix()
+    #ELEMENTS
+    cols = self.elements._connectivity_keys()
+    connectivities  = elements[cols].as_matrix()
+    connectivities[np.isnan(connectivities)] = 0
+    connectivities = connectivities.astype(np.int32)
+    connectivities = nodes_map[connectivities]
+    labels          = np.array(elements.index)
+    etype           = np.array(elements.etype)
+    #TRIANGLES
+    x, y, tri = [], [], []
+    for i in xrange(len(etype)):
+      triangles = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplex"]]
+      for t in triangles:
+        tri.append(t)
+    triangulation = mpl.tri.Triangulation(coords[:,0], coords[:,1], tri)
+    return triangulation  
  
   
   
