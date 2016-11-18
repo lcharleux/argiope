@@ -675,7 +675,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   # FIELDS
   
   fields_string = ""
-  fstrings = {}
+  fstrings_dict = {}
   for tag, field in fields.iteritems():
       field_data = {}
       field.data.sort_index(inplace = True)
@@ -707,15 +707,6 @@ def write_xdmf(mesh, path, dataformat = "XML"):
       field_data["FORMAT"]        = dataformat
       field_data["FIELD_DIMENSION"] = " ".join([str(l) for l in field.data.shape])
       field_data["POSITION"]      = position                             
-      """
-      fstrings[tag] = attribute_pattern.safe_substitute(
-                                   TAG = tag,
-                                   ATTRIBUTETYPE = ftype,
-                                   FORMAT = dataformat,
-                                   FIELD_DIMENSION = 
-                                   " ".join([str(l) for l in field.data.shape]),
-                                   POSITION = position)
-      """
       fstrings[tag] = field_data                             
   if dataformat == "XML":
     #NODES
@@ -771,6 +762,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   pattern = pattern.replace("#DATAFORMAT", dataformat)
   pattern = pattern.replace("#ATTRIBUTES", fields_string) 
   """
+  fields_string = "\n".join([attribute_pattern.substitute(**value) for key, value in fstrings_dict.iteritems()])
   pattern = pattern.substitute(
      ELEMENT_NUMBER = str(Ne),
      CONN_DIMENSION = str(lconn),
