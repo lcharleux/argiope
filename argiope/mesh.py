@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
+from matplotlib import collections
 import os, subprocess, inspect, StringIO, copy
 import argiope
 from string import Template
@@ -261,9 +262,6 @@ class Elements(Container):
     return face_labels, face_number, element_faces
   
      
-  def to_polycollection(self):
-    pass
-  
   def _connectivity_keys(self):
     return ["n{0}".format(i) for i in xrange(self.data.shape[1]-1)]      
 
@@ -328,6 +326,18 @@ class Mesh(object):
     for i in xrange(len(faces)):
       if nset.issuperset(faces[i]): surf.append((elabels[i], flabels[i]))
     self.elements.add_surface(tag, surf)
+  
+  def surface_to_mesh(self, tag):
+    """
+    Converts a surface to a new mesh.
+    """
+    elements, nodes = self.elements, self.nodes
+    surf = elements.surfaces[tag]
+    out = {"nlabels": [], "coords":[], "connectivity":[]}
+    for row in surf.iterrows():
+      print row 
+    
+    
     
   def add_field(self, tag, field):
     """
@@ -335,7 +345,74 @@ class Mesh(object):
     """
     field.master = self
     self.fields[tag] = field  
+  
+  def to_polycollection(self, edge_color = "black", face_color = "blue", 
+                              edge_width = .5, cmap = None):
+    """
+    Returns the mesh as matplotlib polygon collection. (tested only for 2D meshes)
+    """                          
+    nodes, elements = self.nodes.data, self.elements.data
+    #NODES
+    nodes_map = np.arange(nodes.index.max()+1)
+    nodes_map[nodes.index] = np.arange(len(nodes.index))
+    nodes_map[0] = -1
+    coords = nodes.as_matrix()
+    #ELEMENTS
+    cols = self.elements._connectivity_keys()
+    connectivities  = elements[cols].as_matrix()
+    connectivities[np.isnan(connectivities)] = 0
+    connectivities = connectivities.astype(np.int32)
+    connectivities = nodes_map[connectivities]
+    labels          = np.array(elements.index)
+    etype           = np.array(elements.etype)
+    #FACES
+    verts = []
+    for i in xrange(len(etype)):
+      face = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["faces"]]
+      vert = np.array([coords[n] for n in face])
+      verts.append(vert[:,:2])
+    verts = np.array(verts)
+    patches = collections.PolyCollection(verts, 
+                        edgecolor = edge_color, 
+                        linewidth = edge_width, 
+                        cmap = cmap)
+    return patches
+  
+  def centroids_and_volumes(self):
+    """
+    Returns the centroid and the volume of each element.
+    """
+    nodes, elements = self.nodes.data, self.elements.data
+    #NODES
+    nodes_map = np.arange(nodes.index.max()+1)
+    nodes_map[nodes.index] = np.arange(len(nodes.index))
+    nodes_map[0] = -1
+    coords = nodes.as_matrix()
+    #ELEMENTS
+    cols = self.elements._connectivity_keys()
+    connectivities  = elements[cols].as_matrix()
+    connectivities[np.isnan(connectivities)] = 0
+    connectivities = connectivities.astype(np.int32)
+    connectivities = nodes_map[connectivities]
+    etype           = np.array(elements.etype)
+    #CENTROIDS & VOLUME
+    centroids, volumes = [], []
+    for i in xrange(len(etype)):
+      simplices = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplex"]]
+      simplices = np.array([ [coords[n] for n in simp] for simp in simplices])
+      v = np.array([argiope.mesh.tri_area(simp) for simp in simplices])
+      g = np.array([simp.mean(axis=0) for simp in simplices])
+      vol = v.sum()
+      centroids.append((g.transpose()*v).sum(axis=1) / vol)
+      volumes.append(vol)
+    centroids = np.array(centroids)
+    volumes   = np.array(volumes)
+    return centroids, volumes
     
+ 
+  
+  
+                          
 ################################################################################
     
 
@@ -467,6 +544,7 @@ def read_inp(path):
   
   # File preprocessing
   lines = np.array([l.strip().lower() for l in open(path).readlines()])
+  lines = [line for line in  lines if len(line) != 0]
   # Data processing
   env, setlabel = None, None
   for line in lines: 
@@ -500,7 +578,7 @@ def read_inp(path):
       if env == "elset":
         opt = d["options"]      
         currentset = opt["elset"]
-        nsets[currentset] = []
+        esets[currentset] = []
       
       # Surfaces
       if env == "surface":
@@ -531,10 +609,10 @@ def read_inp(path):
         if currentset != None: esets[currentset].append(label)
       
       if env == "nset":
-        nsets[currentset] = [int(w) for w in words if len(w) != 0]   
+        nsets[currentset] += [int(w) for w in words if len(w) != 0]   
         
       if env == "elset":
-        esets[currentset] = [int(w) for w in words if len(w) != 0]  
+        esets[currentset] += [int(w) for w in words if len(w) != 0]  
       
       if env == "surface":
         if opt["type"] == "element":
@@ -595,9 +673,11 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   etypes          = np.array([cell_map[t] for t in elements.etype])
   lconn           = Ne + (connectivities != -1).sum()
   # FIELDS
+  
   fields_string = ""
   fstrings = {}
   for tag, field in fields.iteritems():
+      field_data = {}
       field.data.sort_index(inplace = True)
       fshape = field.data.shape[1]
       if   fshape  == 1: ftype = "Scalar"
@@ -622,6 +702,12 @@ def write_xdmf(mesh, path, dataformat = "XML"):
         position = "Node"
       if field.info.position == "Element":
         position = "Cell"  
+      field_data["TAG"]           = tag
+      field_data["ATTRIBUTETYPE"] = ftype
+      field_data["FORMAT"]        = dataformat
+      field_data["FIELD_DIMENSION"] = " ".join([str(l) for l in field.data.shape])
+      field_data["POSITION"]      = position                             
+      """
       fstrings[tag] = attribute_pattern.safe_substitute(
                                    TAG = tag,
                                    ATTRIBUTETYPE = ftype,
@@ -629,6 +715,8 @@ def write_xdmf(mesh, path, dataformat = "XML"):
                                    FIELD_DIMENSION = 
                                    " ".join([str(l) for l in field.data.shape]),
                                    POSITION = position)
+      """
+      fstrings[tag] = field_data                             
   if dataformat == "XML":
     #NODES
     nodes_string = "\n".join([11*" " + "{0} {1} {2}".format(
@@ -651,8 +739,8 @@ def write_xdmf(mesh, path, dataformat = "XML"):
                                 header = False).split("\n")
       fdata = [11 * " " + l for l in fdata]
       fdata = "\n".join(fdata)
-      fstrings[tag] = fstrings[tag].substitute(DATA = fdata)
-      fields_string += fstrings[tag]     
+      fstrings[tag]["DATA"] = fdata
+      fields_string += attribute_pattern.substitute(**fstrings[tag])     
   elif dataformat == "HDF":
     hdf = pd.HDFStore(path + ".h5")
     hdf.put("COORDS", mesh.nodes.data[list("xyz")])
