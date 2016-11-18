@@ -596,7 +596,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   lconn           = Ne + (connectivities != -1).sum()
   # FIELDS
   fields_string = ""
-  fstrings = {}
+  fstrings_dict = {}
   for tag, field in fields.iteritems():
       field.data.sort_index(inplace = True)
       fshape = field.data.shape[1]
@@ -622,13 +622,13 @@ def write_xdmf(mesh, path, dataformat = "XML"):
         position = "Node"
       if field.info.position == "Element":
         position = "Cell"  
-      fstrings[tag] = attribute_pattern.safe_substitute(
-                                   TAG = tag,
-                                   ATTRIBUTETYPE = ftype,
-                                   FORMAT = dataformat,
-                                   FIELD_DIMENSION = 
-                                   " ".join([str(l) for l in field.data.shape]),
-                                   POSITION = position)
+      fstrings_dict[tag] = {
+           "TAG" : tag,
+           "ATTRIBUTETYPE" : ftype,
+           "FORMAT" :dataformat,
+           "FIELD_DIMENSION" : " ".join([str(l) for l in field.data.shape]),
+           "POSITION" :position
+                           }
   if dataformat == "XML":
     #NODES
     nodes_string = "\n".join([11*" " + "{0} {1} {2}".format(
@@ -651,8 +651,8 @@ def write_xdmf(mesh, path, dataformat = "XML"):
                                 header = False).split("\n")
       fdata = [11 * " " + l for l in fdata]
       fdata = "\n".join(fdata)
-      fstrings[tag] = fstrings[tag].substitute(DATA = fdata)
-      fields_string += fstrings[tag]     
+      fstrings_dict[tag]["DATA"] = fdata
+      #fields_string += fstrings[tag]     
   elif dataformat == "HDF":
     hdf = pd.HDFStore(path + ".h5")
     hdf.put("COORDS", mesh.nodes.data[list("xyz")])
@@ -683,6 +683,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   pattern = pattern.replace("#DATAFORMAT", dataformat)
   pattern = pattern.replace("#ATTRIBUTES", fields_string) 
   """
+  fields_string = "\n".join([attribute_pattern.substitute(**value) for key, value in fstrings_dict.iteritems()])
   pattern = pattern.substitute(
      ELEMENT_NUMBER = str(Ne),
      CONN_DIMENSION = str(lconn),
