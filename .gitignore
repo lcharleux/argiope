@@ -19,3 +19,5 @@
 *.pyc
 *.h5
 *.rpt
+*__pycache__*
+
