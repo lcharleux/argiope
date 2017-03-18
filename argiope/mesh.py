@@ -238,39 +238,35 @@ class Mesh:
     """
     Returns a dataframe containing volume and centroids of all the elements.
     """
-    tuples = [("volume", self._null)] 
-    columns = pd.MultiIndex.from_tuples(tuples)
-    out = pd.DataFrame(index = self.elements.index, columns = columns)
-    nodes, elements = self.nodes, self.elements
-    #NODES
-    nodes_map = np.arange(nodes.index.max()+1)
-    nodes_map[nodes.index] = np.arange(len(nodes.index))
-    nodes_map[0] = -1
-    coords = nodes.coords.as_matrix()
-    #ELEMENTS
-    cols = elements.conn.keys()
-    connectivities  = elements.conn.as_matrix()
-    connectivities[np.isnan(connectivities)] = 0
-    connectivities = connectivities.astype(np.int32)
-    connectivities = nodes_map[connectivities]
-    etype           = np.array(elements.type.argiope[self._null])
-    #CENTROIDS & VOLUME
-    centroids, volumes = [], []
-    for i in range(len(etype)):
-      simplices = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplex"]]
-      simplices = np.array([ [coords[n] for n in simp] for simp in simplices])
-      v = np.array([argiope.mesh.tri_area(simp) for simp in simplices])
-      g = np.array([simp.mean(axis=0) for simp in simplices])
-      vol = v.sum()
-      centroids.append((g.transpose()*v).sum(axis=1) / vol)
-      volumes.append(vol)
-    centroids = np.array(centroids)
-    volumes   = np.array(volumes)
-    out["volume", self._null] = volumes
-    out["centroid", "x"] = centroids[:, 0]
-    out["centroid", "y"] = centroids[:, 1]
-    out["centroid", "z"] = centroids[:, 2]
-    return out 
+    elements, nodes = self.elements, self.nodes
+    etypes = elements.type.argiope.o.unique()
+    out = []
+    for etype in etypes:
+      typedata = ELEMENTS[etype]
+      simpmap = typedata["simplex"]
+      simpshape = simpmap.shape
+      conn = elements.conn[elements.type.argiope.o == etype]
+      simplices = nodes.coords.loc[conn.values[:, simpmap].flatten()].values.reshape(
+                  len(conn), simpshape[0], simpshape[1], 3) 
+      edges = edges = simplices[:,:,1:] - simplices[:,:,:1] 
+      simplices_centroids = simplices.mean(axis = 2)
+      if typedata["space"] == 2:
+        simplices_volumes = np.linalg.norm(np.cross(edges[:,:,0], edges[:,:,1], axis = 2)
+               , axis = 2)
+      elif typedata["space"] == 3:          
+        print("todo")
+      elements_volumes = simplices_volumes.sum(axis = 1)
+      elements_centroids = ((simplices_volumes.reshape(*simplices_volumes.shape, 1) 
+                          * simplices_centroids).sum(axis = 1) 
+                          / elements_volumes.reshape(*elements_volumes.shape,1))
+      out.append(pd.DataFrame(index = conn.index, 
+                              data = {"volume" : elements_volumes,
+                              "xg": elements_centroids[:,0],
+                              "yg": elements_centroids[:,1],
+                              "zg": elements_centroids[:,2],}))
+    out = pd.concat(out)
+    return out.sort_index()
+    
     
   def space(self):
     """

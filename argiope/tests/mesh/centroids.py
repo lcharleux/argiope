@@ -8,23 +8,36 @@ def tri_area(vert):
 
 ELEMENTS = ag.mesh.ELEMENTS
 mesh = ag.mesh.read_msh("demo.msh")
-mesh.elements = mesh.elements.iloc[:2]
+#mesh.elements = mesh.elements.iloc[:2]
 
 elements, nodes = mesh.elements, mesh.nodes
-ne = len(elements)
-centroids = np.zeros((ne, 3))
-volumes = np.zeros(ne)
 etypes = elements.type.argiope.o.unique()
-
+out = []
 for etype in etypes:
   typedata = ELEMENTS[etype]
   simpmap = typedata["simplex"]
   simpshape = simpmap.shape
-  conn = elements.conn[elements.type.argiope.o == etype].values
-  lconn = len(conn)
-  simplices = nodes.coords.loc[conn[:, simpmap].flatten()].values.reshape(
-              lconn, simpshape[0], simpshape[1], 3) 
-
+  conn = elements.conn[elements.type.argiope.o == etype]
+  simplices = nodes.coords.loc[conn.values[:, simpmap].flatten()].values.reshape(
+              len(conn), simpshape[0], simpshape[1], 3) 
+  edges = edges = simplices[:,:,1:] - simplices[:,:,:1] 
+  simplices_centroids = simplices.mean(axis = 2)
+  if typedata["space"] == 2:
+    simplices_volumes = np.linalg.norm(np.cross(edges[:,:,0], edges[:,:,1], axis = 2)
+           , axis = 2)
+  elif typedata["space"] == 3:          
+    print("todo")
+  elements_volumes = simplices_volumes.sum(axis = 1)
+  elements_centroids = ((simplices_volumes.reshape(*simplices_volumes.shape, 1) 
+                      * simplices_centroids).sum(axis = 1) 
+                      / elements_volumes.reshape(*elements_volumes.shape,1))
+  out.append(pd.DataFrame(index = conn.index, 
+                          data = {"volume" : elements_volumes,
+                          "xg": elements_centroids[:,0],
+                          "yg": elements_centroids[:,1],
+                          "zg": elements_centroids[:,2],}))
+out = pd.concat(out)
+out.sort_index(inplace = True)
   
 """
 #ELEMENTS
