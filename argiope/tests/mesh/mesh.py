@@ -98,7 +98,7 @@ nsets = {"top": coords[:,1] > .9,
 # Elements
 ne = 5       
 elabels = np.arange(1, ne+1) 
-etypes = ["dummy" for i in range(ne)]
+etypes = ["Tri3" for i in range(ne)]
 conn = np.random.randint(1, nn, size = (ne, 4))
 esets = {"odds": (elabels % 2) > 0 }
 stop = np.unique(np.random.randint(1, ne+1, size = 3000))

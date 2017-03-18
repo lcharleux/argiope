@@ -72,7 +72,6 @@ plt.ylabel("$y$")
 plt.grid()
 path = "Mesh-to_triangulation.pdf"
 plt.savefig(path)
-os.system("pdfcrop {0} {0}".format(path))               
 
 
 

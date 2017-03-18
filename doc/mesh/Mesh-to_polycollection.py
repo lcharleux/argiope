@@ -4,6 +4,11 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import os
 
+mpl.rcParams['grid.color'] = 'k'
+mpl.rcParams['grid.linestyle'] = ':'
+mpl.rcParams['grid.linewidth'] = 0.5
+
+
 mesh = ag.mesh.read_msh("demo.msh")
 edge_color = "black"
 face_color = "blue"
@@ -40,16 +45,17 @@ for i in xrange(len(etype)):
 centroids = np.array(centroids)
 volumes   = np.array(volumes)
 """
-patches = mesh.to_polycollection()
-centroids, volumes = mesh.centroids_and_volumes()
-
-patches.set_array(volumes)
+patches = mesh.to_polycollection(edgecolor = "black", linewidth = .1)
+cv = mesh.centroids_and_volumes()
+patches.set_array(cv.volume.iloc[:,0].values)
+patches.set_cmap(mpl.cm.jet)
 fig = plt.figure()
 ax = fig.add_subplot(1,1,1)
 ax.set_aspect("equal")
 ax.set_xlim(-.1, 1.1)
 ax.set_ylim(-.1, 1.1)
 ax.add_collection(patches)
+
 cbar = plt.colorbar(patches)
 cbar.set_label("Element Volume, $V$ ")
 #plt.plot(centroids[:,0], centroids[:,1], ",k")

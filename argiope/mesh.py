@@ -17,7 +17,7 @@ ELEMENTS = { "Line2": {"space": 1,
                       },
              "Tri3": {"space": 2, 
                       "nvert": 3,
-                      "faces": np.array([0, 1, 2]),
+                      "faces": np.array([[0, 1, 2]]),
                       "edges": np.array([[0, 1],
                                          [1, 2],
                                          [2, 0]]),
@@ -25,7 +25,7 @@ ELEMENTS = { "Line2": {"space": 1,
                       },
              "Quad4": {"space": 2, 
                        "nvert": 4,
-                       "faces": np.array([0, 1, 2, 3]),
+                       "faces": np.array([[0, 1, 2, 3]]),
                        "edges": np.array([[0, 1],
                                           [1, 2],
                                           [2, 3],
@@ -130,56 +130,297 @@ def tetra_volume(vertices):
 ################################################################################
 # MESH CLASSES 
 ################################################################################
-class Container(object):
   
-  def __init__(self, master = None, sets = {}):
-     self.master = master
-     self.sets = {}
-     self.fields = {}
-     for tag, labels in sets.items(): self.add_set(tag, labels)
-   
-  def __str__(self): 
-    return self.data.__repr__()
-  
-  def add_set(self, tag, labels):
-    """
-    Adds a set.
-    """   
-    self.sets[tag] = set(labels) 
-  
-  def drop_set(self, tag):
-    """
-    Drops a set and all associated data.
-    """
-    dropped_labels = self.sets[tag]
-    labels  = set(self.data.index)
-    new_labels = labels - dropped_labels
-    self.data = self.data.loc[list(new_labels)]
-    del self.sets[tag]  
+class Mesh:
+  """
+  A single class to handle meshes.
+  """
+  _null = "o"
+  def __init__(self, nlabels = None, 
+                     coords = None, 
+                     nsets = None, 
+                     elabels = None, 
+                     etypes = None, 
+                     stypes = None, 
+                     conn = None, 
+                     esets = None, 
+                     surfaces = None, 
+                     fields = None,
+                     materials = None):
+    self.set_nodes(labels = nlabels, 
+                   coords = coords, 
+                   sets = nsets)
+    self.set_elements(labels = elabels, 
+                      types = etypes, 
+                      stypes = stypes, 
+                      conn = conn, 
+                      sets = esets, 
+                      surfaces = surfaces,
+                      materials = materials)
+    self.set_fields(fields)
     
-     
-class Nodes(Container):
-
-  def __init__(self, labels = None, coords = None, *args, **kwargs):
-    self.data = pd.DataFrame(coords, columns = list("xyz"), index = labels)        
-    Container.__init__(self, *args, **kwargs)  
   
   def __repr__(self):
-    return "{0} Nodes ({1} sets)".format(len(self.data), len(self.sets))
+    return "<Mesh, {0} nodes, {1} elements, {2} fields>".format(
+           self.nodes.index.size,
+           self.elements.index.size,
+           len(self.fields.keys()))
   
-  def add_set_by_func(self, tag, func):
-    df = self.data
-    x, y, z = np.array(df.x), np.array(df.y), np.array(df.z)
-    labels = np.array(df.index)
-    self.add_set(tag, labels[func(x, y, z, labels)])
-  
-  def save(self):
-    hdf = pd.HDFStore(self.master.h5path)
-    hdf["nodes/xyz"] = self.data
-    for k, s in self.sets.items():
-      hdf["nodes/sets/{0}".format(k)] = pd.Series(list(s))
-    hdf.close() 
+  def set_nodes(self, labels, coords, sets):
+    """
+    Sets the node data.
+    """ 
+    columns = pd.MultiIndex.from_tuples((("coords", "x"), 
+                                         ("coords", "y"), 
+                                         ("coords", "z")))
+    self.nodes = pd.DataFrame(data = coords, 
+                              columns = columns,
+                              index = labels)
+    self.nodes.index.name = "node"
+    if sets != None:
+      for k, v in sets.items(): self.nodes["sets", k] = v
+        
+  def set_elements(self, labels= None, 
+                         types = None, 
+                         stypes = None, 
+                         conn = None, 
+                         sets = None, 
+                         surfaces = None, 
+                         materials = None):
+    """
+    Sets the element data
+    """
+    # COLUMNS BUILDING
+    columns = pd.MultiIndex.from_tuples([("type", "argiope", self._null)])
+    self.elements = pd.DataFrame(data = types, 
+                                 columns = columns,
+                                 index = labels)
+    self.elements.index.name = "element"
+    self.elements.loc[:, ("type", "solver", self._null)] = stypes
+    # Connectivity 
+    c = pd.DataFrame(conn, index = labels)
+    c.columns = pd.MultiIndex.from_product([["conn"], 
+                                            np.arange(c.shape[1]), 
+                                            [self._null]])
+    self.elements = self.elements.join(c)
+    # Sets
+    if sets != None:
+      for k, v in sets.items(): self.elements["sets", k, self._null] = v
+    if surfaces != None:
+      for k, v in surfaces.items():
+        for fk, vv in v.items():
+           self.elements["surfaces", k, fk] = vv
+    # Materials
+    self.elements["materials"] = materials
     
+  def check_elements(self):
+    """
+    Checks element definitions.
+    """
+    # ELEMENT TYPE CHECKING
+    existing_types = set(self.elements.type.argiope.values.flatten())
+    allowed_types = set(ELEMENTS.keys())
+    if (existing_types <= allowed_types) == False:
+      raise ValueError("Element types {0} not in know elements {1}".format(
+                       existing_types - allowed_types, allowed_types))
+    print("<Elements: OK>")                   
+    
+  def set_fields(self, fields = None):
+    """
+    Sets the field data
+    """
+    self.fields = {}
+    if fields != None:
+      for k, v in fields.items():
+        self.fields[k] = v
+   
+  def centroids_and_volumes(self):
+    """
+    Returns a dataframe containing volume and centroids of all the elements.
+    """
+    tuples = [("volume", self._null)] 
+    columns = pd.MultiIndex.from_tuples(tuples)
+    out = pd.DataFrame(index = self.elements.index, columns = columns)
+    nodes, elements = self.nodes, self.elements
+    #NODES
+    nodes_map = np.arange(nodes.index.max()+1)
+    nodes_map[nodes.index] = np.arange(len(nodes.index))
+    nodes_map[0] = -1
+    coords = nodes.coords.as_matrix()
+    #ELEMENTS
+    cols = elements.conn.keys()
+    connectivities  = elements.conn.as_matrix()
+    connectivities[np.isnan(connectivities)] = 0
+    connectivities = connectivities.astype(np.int32)
+    connectivities = nodes_map[connectivities]
+    etype           = np.array(elements.type.argiope[self._null])
+    #CENTROIDS & VOLUME
+    centroids, volumes = [], []
+    for i in range(len(etype)):
+      simplices = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplex"]]
+      simplices = np.array([ [coords[n] for n in simp] for simp in simplices])
+      v = np.array([argiope.mesh.tri_area(simp) for simp in simplices])
+      g = np.array([simp.mean(axis=0) for simp in simplices])
+      vol = v.sum()
+      centroids.append((g.transpose()*v).sum(axis=1) / vol)
+      volumes.append(vol)
+    centroids = np.array(centroids)
+    volumes   = np.array(volumes)
+    out["volume", self._null] = volumes
+    out["centroid", "x"] = centroids[:, 0]
+    out["centroid", "y"] = centroids[:, 1]
+    out["centroid", "z"] = centroids[:, 2]
+    return out 
+    
+  def space(self):
+    """
+    Returns the dimension of the embedded space of each element.
+    """
+    return self.elements.type.argiope.applymap(
+                               lambda t: ELEMENTS[t]["space"])  
+  
+  def nvert(self):
+    """
+    Returns the number of vertices of eache element according to its type/
+    """
+    return self.elements.type.argiope.applymap(
+                               lambda t: ELEMENTS[t]["nvert"])  
+  
+  def element_surfaces(self, kind = "edges"):
+    """
+    Returns the faces of the elements.
+    """
+    elements = self.elements
+    element_faces = []
+    face_labels   = []
+    face_number   = []
+    element_labels = np.array(elements.index)
+    element_connectivity = elements.conn.as_matrix()
+    element_etype        = elements["type", "argiope", self._null].as_matrix()
+    for i in range(len(element_labels)):
+      etype = element_etype[i]
+      conn  = element_connectivity[i]
+      label = element_labels[i]
+      faces = ELEMENTS[etype][kind]
+      for fn in range(len(faces)):
+        element_faces.append(np.int32(conn[faces[fn]]))
+        face_labels.append(label)
+        face_number.append(fn+1)
+    index = pd.MultiIndex.from_tuples(
+            list(zip(*[face_labels, face_number])),
+            names = ["element", "face"])
+    out = pd.DataFrame(data = element_faces, index = index)
+    return out
+    
+  
+  def element_set_to_node_set(self, tag):
+    """
+    Makes a node set from an element set.
+    """
+    loc = self.elements.loc[:, ("sets", tag, self._null)].as_matrix().flatten()
+    nlabels = np.unique(self.elements.conn.as_matrix()[loc].flatten())
+    self.nodes[("sets", tag)] = False
+    self.nodes.loc[nlabels, ("sets", tag)] = False 
+
+  def node_set_to_surface(self, tag):
+    """
+    Converts a node set to surface.
+    """
+    faces = self.faces()
+    surf = pd.DataFrame(np.prod(self.nodes.sets[tag].loc[faces.values.flatten()]
+           .values.reshape(faces.shape),axis = 1)
+           .astype(np.bool),
+           index = faces.index).unstack()
+    for k in surf.keys():
+      self.elements["surfaces", tag, k[1]] = surf.loc[:, k]
+    
+  def to_polycollection(self, *args, **kwargs):
+    """
+    Returns the mesh as matplotlib polygon collection. (tested only for 2D meshes)
+    """                          
+    nodes, elements = self.nodes, self.elements
+    #NODES
+    nodes_map = np.arange(nodes.index.max()+1)
+    nodes_map[nodes.index] = np.arange(len(nodes.index))
+    nodes_map[0] = -1
+    coords = nodes.coords.as_matrix()
+    #ELEMENTS
+    connectivities  = elements.conn.as_matrix()
+    connectivities[np.isnan(connectivities)] = 0
+    connectivities = connectivities.astype(np.int32)
+    connectivities = nodes_map[connectivities]
+    labels          = np.array(elements.index)
+    etype           = np.array(elements.type.argiope.iloc[:,0])
+    #FACES
+    verts = []
+    for i in range(len(etype)):
+      face = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["faces"]]
+      vert = np.array([coords[n] for n in face])
+      verts.append(vert[:,:2])
+    verts = np.array(verts)
+    patches = collections.PolyCollection(verts, *args,**kwargs )
+    return patches
+  
+  def to_triangulation(self):
+    """
+    Returns the mesh as a matplotlib.tri.Triangulation instance. (2D only)
+    """
+    nodes, elements = self.nodes, self.elements
+    #NODES
+    nodes_map = np.arange(nodes.index.max()+1)
+    nodes_map[nodes.index] = np.arange(len(nodes.index))
+    nodes_map[0] = -1
+    coords = nodes.coords.as_matrix()
+    #ELEMENTS
+    connectivities  = elements.conn.as_matrix()
+    connectivities[np.isnan(connectivities)] = 0
+    connectivities = connectivities.astype(np.int32)
+    connectivities = nodes_map[connectivities]
+    labels          = np.array(elements.index)
+    etype           = np.array(elements.type.argiope).flatten()
+    print(etype)
+    #TRIANGLES
+    x, y, tri = [], [], []
+    for i in range(len(etype)):
+      triangles = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplex"]]
+      for t in triangles:
+        tri.append(t)
+    triangulation = mpl.tri.Triangulation(coords[:,0], coords[:,1], tri)
+    return triangulation     
+  
+  
+class Field:
+  _positions = ["node", "element"]
+  def __init__(self, position = "node", step = None, frame = None, time = None,   
+               data = None, index = None, custom = None):
+     # Infos
+     if position not in self._positions: 
+       raise ValueError("'position' must be in {0}, got '{1}'".format(
+                        self._positions, position))
+     info = {"position" : position,
+             "step" : step,
+             "frame": frame,
+             "time" : time}
+     self.info = pd.Series(info)
+     # Data
+     self.data =  pd.DataFrame(index = index, data = data, 
+                               columns = self._columns)
+     self.data.index.name = position
+     # Custom data
+     self.custom = pd.Series(custom)
+     
+
+class Tensor6Field(Field):
+  _columns = ["v11", "v22", "v33", "v12", "v13", "v23"]
+   
+class VectorField(Field):
+  _columns = ["v1", "v2", "v3"]
+  
+class ScalarField(Field):
+  _columns = ["v"]  
+    
+    
+''' 
 class Elements(Container):
 
   def __init__(self, labels = None, etypes =  None, connectivity = None, surfaces = {}, maxconn = 8, *args, **kwargs):
@@ -457,7 +698,7 @@ class Mesh(object):
     triangulation = mpl.tri.Triangulation(coords[:,0], coords[:,1], tri)
     return triangulation  
  
-  
+'''  
   
                           
 ################################################################################
@@ -466,12 +707,11 @@ class Mesh(object):
 ################################################################################
 # PARSERS
 ################################################################################
-def read_h5(h5path):
+def read_h5(hdfstore, group = ""):
   """
   Reads a mesh saved in the HDF5 format.
   """
-  hdf = pd.HDFStore(h5path)
-  m = Mesh(h5path = h5path)
+  m = Mesh()
   m.elements.data = hdf["elements/connectivity"]
   m.nodes.data    = hdf["nodes/xyz"]
   for key in hdf.keys():
@@ -538,13 +778,15 @@ def read_msh(path):
   tags = np.array([t[0] for t in elements["tags"]])
   for k in physicalNames.keys():
     sets[physicalNames[k]] = np.array([t == k for t in tags])     
+  """
   for tag, values in sets.items():
     elements["sets"][tag] = elements["labels"][values]     
-   
+  """
+  elements["sets"] = sets
   return Mesh(nlabels = nodes["labels"], 
               coords = np.array(nodes[["x", "y", "z"]]),
               elabels = elements["labels"],
-              connectivity = elements["conn"],
+              conn = elements["conn"],
               etypes = elements["etype"],
               esets = elements["sets"])
 
