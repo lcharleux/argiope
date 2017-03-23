@@ -4,31 +4,54 @@ import pandas as pd
 
 ELEMENTS = ag.mesh.ELEMENTS
 mesh = ag.mesh.read_msh("demo.msh")
-#mesh.elements = mesh.elements[mesh.elements.type.argiope.o == "hexa8"]
+#mesh.elements = mesh.elements.iloc[:5]
 
-elements = mesh.elements
+elements, nodes = mesh.elements, mesh.nodes
+etypes = elements.type.argiope.o.unique()
 out = []
-for etype, group in mesh.elements.groupby([("type", "argiope", "o")]):
+for etype in etypes:
   etype_info = ELEMENTS[etype]
-  simplices_info = etype_info.simplices
-  index = group.index
+  edges_info = etype_info["edges"]
+  loc = elements.type.argiope.o == etype
+  index = elements.loc[loc].index
+  edges_data = mesh.split(into = "edges", 
+                         loc = loc,
+                         at = "coords")
+  data = edges_data.values.reshape(index.size, 
+                                    edges_info.shape[0],
+                                    edges_info.shape[1],
+                                    3)        
+  length = np.linalg.norm((data[:,:,1] - data[:,:,0]), axis = 2)
+  df = pd.DataFrame(index = index, 
+                    data = length, 
+                    columns = pd.MultiIndex.from_product(
+                              [["length"], range(edges_info.shape[0])]))  
+  df["stats", "aspect_ratio"] = df.length.max(axis = 1) / df.length.min(axis = 1)
+  out.append(df)
+out = pd.concat(out)      
+                         
+                          
+"""
+  
+  loc = elements.type.argiope.o == etype
+  index = elements.loc[loc].index
   simplices_data = mesh.split(into = "simplices", 
-                         loc = index,
+                         loc = loc,
                          at = "coords") 
   simplices = simplices_data.values.reshape(
               index.size, 
               simplices_info.shape[0], 
               simplices_info.shape[1], 
               3) 
-  edges = simplices[:,:,1:] - simplices[:,:,:1] 
+  edges = edges = simplices[:,:,1:] - simplices[:,:,:1] 
   simplices_centroids = simplices.mean(axis = 2)
-  if etype_info.space == 2:
+  if etype_info["space"] == 2:
     simplices_volumes = np.linalg.norm(
               np.cross(edges[:,:,0], 
                        edges[:,:,1], 
                        axis = 2),
               axis = 2)
-  elif etype_info.space == 3:          
+  elif etype_info["space"] == 3:          
     simplices_volumes =  (np.cross(edges[:,:,0], 
                                    edges[:,:,1], axis = 2) 
                          * edges[:,:, 2]).sum(axis = 2)
@@ -36,16 +59,14 @@ for etype, group in mesh.elements.groupby([("type", "argiope", "o")]):
   elements_centroids = ((simplices_volumes.reshape(*simplices_volumes.shape, 1) 
                       * simplices_centroids).sum(axis = 1) 
                       / elements_volumes.reshape(*elements_volumes.shape,1))
-  volumes_df = pd.DataFrame(index = index,
-                            data = elements_volumes,
-                            columns = pd.MultiIndex.from_product(
-                            [["volume"], [mesh._null]]))
-  centroids_df = pd.DataFrame(index = index,
-                            data = elements_centroids,
-                            columns = pd.MultiIndex.from_product(
-                            [["centroid"], ["x", "y", "z"]]))                          
-  out.append(pd.concat([volumes_df, centroids_df], axis = 1))             
+  out.append(pd.DataFrame(index = index, 
+                          data = {"volume" : elements_volumes,
+                          "xg": elements_centroids[:,0],
+                          "yg": elements_centroids[:,1],
+                          "zg": elements_centroids[:,2],}))             
+
 out = pd.concat(out)  
+"""
 """
   typedata = ELEMENTS[etype]
   simpmap = typedata["simplices"]

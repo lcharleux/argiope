@@ -21,6 +21,10 @@ Circle(7)  = {8,3,7};
 Circle(8)  = {10,9,11};
 Circle(9)  = {11,9,10};
 
+Transfinite Line {8} = 15;
+Transfinite Line {9} = 10;
+
+
 Line Loop(1) = {6,7}; // interior loop
 Line Loop(2) = {1,2,3,4,5}; // exterior loop
 Line Loop(3) = {8,9};// hole

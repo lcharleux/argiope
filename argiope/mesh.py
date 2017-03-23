@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib as mpl
 from matplotlib import collections
-import os, subprocess, inspect, io, copy
+import os, subprocess, inspect, io, copy, collections
 import argiope
 from string import Template
 
@@ -11,119 +11,128 @@ MODPATH = os.path.dirname(inspect.getfile(argiope))
 ################################################################################
 # CONSTANTS AND DEFINITIONS
 ################################################################################
-ELEMENTS = { "Line2": {"space": 1, 
-                       "nvert": 2,
-                       "simplex": np.array([[0, 1]])
-                      },
-             "Tri3": {"space": 2, 
-                      "nvert": 3,
-                      "faces": np.array([[0, 1, 2]]),
-                      "edges": np.array([[0, 1],
-                                         [1, 2],
-                                         [2, 0]]),
-                      "simplex": np.array([[0, 1, 2]])
-                      },
-             "Quad4": {"space": 2, 
-                       "nvert": 4,
-                       "faces": np.array([[0, 1, 2, 3]]),
-                       "edges": np.array([[0, 1],
-                                          [1, 2],
-                                          [2, 3],
-                                          [3, 0]]),
-                       "simplex": np.array([[0, 1, 3], 
-                                            [1, 2, 3]])
-                      },                           
-             "Tetra4":{"space": 3, 
-                       "nvert": 4,
-                       "edges": np.array([[0, 1],
-                                          [1, 2],
-                                          [2, 3],
-                                          [3, 0]]),
-                       "faces": np.array([[0, 1, 2],
-                                               [0, 3, 1],
-                                               [1, 3, 2],
-                                               [2, 3, 0]]),                   
-                       "simplex": np.array([[0, 1, 3, 4]])
-                       },                           
-             "Pyra5":{"space": 3, 
-                       "nvert": 5,
-                       "edges": np.array([[0, 1],
-                                          [1, 2],
-                                          [2, 3],
-                                          [3, 0],
-                                          [0, 4],
-                                          [1, 4],
-                                          [2, 4],
-                                          [3, 4]]),
-                       "faces": np.array([[0, 1, 2, 3],
-                                          [0, 1, 4],
-                                          [1, 2, 4],
-                                          [2, 3, 4],
-                                          [3, 0, 4]]),          
-                       "simplex": np.array([[0, 1, 3, 4],
-                                            [1, 2, 3, 4]])
-                       },     
-             "Prism6":{"space": 3, 
-                       "nvert": 6,
-                       "edges": np.array([[0, 1],
-                                          [1, 2],
-                                          [2, 0],
-                                          [3, 4],
-                                          [4, 5],
-                                          [5, 3],
-                                          [0, 3],
-                                          [1, 4],
-                                          [2, 5]]),
-                       "faces": np.array([[0, 1, 2],
-                                          [3, 5, 4],
-                                          [0, 3, 4, 1],
-                                          [1, 4, 5, 2],
-                                          [2, 5, 3, 0]]),   
-                       "simplex": np.array([[0, 1, 2, 3],
-                                            [1, 2, 3, 4],
-                                            [2, 3, 4, 5]]) 
-                       },     
-             "Hexa8":{"space": 3, 
-                      "nvert": 8,
-                      "edges": np.array([[0, 1],
-                                         [1, 2],
-                                         [2, 3],
-                                         [3, 0],
-                                         [4, 5],
-                                         [5, 6],
-                                         [6, 7],
-                                         [7, 4],
-                                         [0, 4],
-                                         [1, 5],
-                                         [2, 6],
-                                         [3, 7]]),
-                       "faces": np.array([[0, 1, 2, 3],
-                                          [4, 7, 6, 5],
-                                          [0, 4, 5, 1],
-                                          [1, 5, 6, 2],
-                                          [2, 6, 7, 3],
-                                          [3, 7, 4, 0]]),
-                       "simplex": np.array([[0, 1, 3, 4],
-                                            [1, 2, 3, 4],
-                                            [3, 2, 7, 4],  
-                                            [2, 6, 7, 4],
-                                            [1, 5, 2, 4],
-                                            [2, 5, 6, 4]])
-                       },     
-             }
-
-def tri_area(vertices):
-  u = vertices[0]
-  v = vertices[1]
-  w = vertices[2]
-  return np.linalg.norm(np.cross( v-u, w-u)) / 2.
+class Element:
+  def __init__(self, nvert, edges = None, simplices = None ):
+    self.nvert = nvert
+    self.edges = edges
+    self.simplices = simplices
     
-def tetra_volume(vertices):
-  u = vertices[0]
-  v = vertices[1]
-  w = vertices[2]
-  x = vertices[3]
-  return np.cross(v-u, w-u).dot(x-u) / 6. 
+  
+  def __repr__(self):
+    return "<{0}D element w. {1} vert.>".format(self.space, self.nvert)
+  
+  def split(self, elements, to, at = "labels"):
+    """
+    Splits elements of the rigth type.
+    """
+    return
+
+class Element1D(Element):
+  space = 1
+  pass
+  
+class Element2D(Element):
+  space = 2
+  
+  def __init__(self, angles, optimal_angles, *args, **kwargs):
+    self.angles = angles
+    self.optimal_angles = optimal_angles
+    super().__init__(*args, **kwargs)
+
+class Element3D(Element):
+  space = 3
+  
+  def __init__(self, faces, faces_types, *args, **kwargs):
+    self.faces = faces
+    self.faces_types = faces_types
+    super().__init__(*args, **kwargs)
+
+  def get_angles(self):
+    return np.concatenate([self.faces[i][ELEMENTS[self.faces_types[i]].angles] 
+                           for i in range(len(self.faces))])
+  angles = property(get_angles)  
+  
+  
+   
+ELEMENTS = {
+    "line2": Element1D(
+        nvert =  2),
+    "tri3":  Element2D(
+        nvert = 3,
+        edges = np.array([[0, 1],[1, 2], [2, 0]]),                   
+        simplices = np.array([[0, 1, 2]]),
+        angles = np.array([[2, 0, 1], [0, 1, 2], [1, 2, 0]]),
+        optimal_angles = np.array([60., 60., 60.])),               
+    "quad4": Element2D(
+        nvert = 4,
+        edges = np.array([[0, 1], [1, 2], [2, 3],[3, 0]]),
+        simplices = np.array([[0, 1, 3], [1, 2, 3]]),
+        angles = np.array([[3, 0, 1], [0, 1, 2], [1, 2, 3], [2, 3, 0]]),
+        optimal_angles = np.array([90., 90., 90., 90.])), 
+    "tetra4": Element3D(
+        nvert = 4,
+        edges = np.array([[0, 1], 
+                          [1, 2],
+                          [2, 3],
+                          [3, 0]]),
+        faces = np.array([[0, 1, 2],
+                          [0, 3, 1],
+                          [1, 3, 2],
+                          [2, 3, 0]]),                   
+        faces_types = np.array(["tri3",
+                                "tri3",
+                                "tri3",
+                                "tri3"]),
+        simplices = np.array([[0, 1, 3, 4]])),
+    "pyra5": Element3D(
+        nvert = 5,
+        edges = np.array([[0, 1], [1, 2], [2, 3], [3, 0],
+                          [0, 4], [1, 4], [2, 4], [3, 4]]),
+        faces = [np.array([0, 1, 2, 3]),
+                 np.array([0, 1, 4]), 
+                 np.array([1, 2, 4]), 
+                 np.array([2, 3, 4]), 
+                 np.array([3, 0, 4])],          
+        faces_types = np.array(["quad4",
+                               "tri3", "tri3", "tri3", "tri3"]),
+        simplices = np.array([[0, 1, 3, 4],  [1, 2, 3, 4]])), 
+    "prism6": Element3D( 
+        nvert = 6,
+        edges = np.array([[0, 1], [1, 2], [2, 0], [3, 4],
+                          [4, 5], [5, 3], [0, 3], [1, 4], [2, 5]]),
+        faces = [np.array([0, 1, 2]), 
+                 np.array([3, 5, 4]),
+                 np.array([0, 3, 4, 1]), 
+                 np.array([1, 4, 5, 2]), 
+                 np.array([2, 5, 3, 0])],
+        faces_types = np.array(["tri3", "tri3",
+                               "quad4", "quad4", "quad4"]),                      
+        simplices = np.array([[0, 1, 2, 3],
+                              [1, 2, 3, 4],
+                              [2, 3, 4, 5]])),
+    "hexa8":Element3D(  
+        nvert = 8,
+        edges = np.array([[0, 1], [1, 2], [2, 3], [3, 0],
+                          [4, 5], [5, 6], [6, 7], [7, 4],
+                          [0, 4], [1, 5], [2, 6], [3, 7]]),
+        faces = np.array([[0, 1, 2, 3], 
+                          [4, 7, 6, 5],
+                          [0, 4, 5, 1],
+                          [1, 5, 6, 2],
+                          [2, 6, 7, 3],
+                          [3, 7, 4, 0]]),
+        faces_types = np.array(["quad4", "quad4", "quad4", "quad4", 
+                                "quad4", "quad4"]),                      
+        simplices =np.array([[0, 1, 3, 4],
+                            [1, 2, 3, 4],
+                            [3, 2, 7, 4],  
+                            [2, 6, 7, 4],
+                            [1, 5, 2, 4],
+                            [2, 5, 6, 4]])),
+                                        
+       }    
+    
+     
 ################################################################################
                   
 
@@ -199,9 +208,12 @@ class Mesh:
     self.elements.loc[:, ("type", "solver", self._null)] = stypes
     # Connectivity 
     c = pd.DataFrame(conn, index = labels)
+    c.fillna(0, inplace = True)
+    c[:] = c.values.astype(np.int32)
     c.columns = pd.MultiIndex.from_product([["conn"], 
                                             np.arange(c.shape[1]), 
                                             [self._null]])
+    
     self.elements = self.elements.join(c)
     # Sets
     if sets != None:
@@ -234,42 +246,6 @@ class Mesh:
       for k, v in fields.items():
         self.fields[k] = v
    
-  def centroids_and_volumes(self):
-    """
-    Returns a dataframe containing volume and centroids of all the elements.
-    """
-    elements, nodes = self.elements, self.nodes
-    etypes = elements.type.argiope.o.unique()
-    out = []
-    for etype in etypes:
-      typedata = ELEMENTS[etype]
-      simpmap = typedata["simplex"]
-      simpshape = simpmap.shape
-      conn = elements.conn[elements.type.argiope.o == etype]
-      simplices = nodes.coords.loc[conn.values[:, simpmap].flatten()].values.reshape(
-                  len(conn), simpshape[0], simpshape[1], 3) 
-      edges = edges = simplices[:,:,1:] - simplices[:,:,:1] 
-      simplices_centroids = simplices.mean(axis = 2)
-      if typedata["space"] == 2:
-        simplices_volumes = np.linalg.norm(np.cross(edges[:,:,0], edges[:,:,1], axis = 2)
-               , axis = 2)
-      elif typedata["space"] == 3:          
-        print("todo")
-      elements_volumes = simplices_volumes.sum(axis = 1)
-      elements_centroids = ((simplices_volumes.reshape(*simplices_volumes.shape, 1) 
-                          * simplices_centroids).sum(axis = 1) 
-                          / elements_volumes.reshape(*elements_volumes.shape,1))
-      out.append(pd.DataFrame(index = conn.index, 
-                              data = {"volume" : elements_volumes,
-                              "xg": elements_centroids[:,0],
-                              "yg": elements_centroids[:,1],
-                              "zg": elements_centroids[:,2],}))
-    out = pd.concat(out)
-    return out.sort_index()
-    
-  
-  
-    
   def space(self):
     """
     Returns the dimension of the embedded space of each element.
@@ -284,36 +260,142 @@ class Mesh:
     return self.elements.type.argiope.applymap(
                                lambda t: ELEMENTS[t]["nvert"])  
   
-  def element_surfaces(self, kind = "edges"):
+  def split(self, into = "edges", loc = None, 
+            at = "labels", sort_index = True):
     """
-    Returns the faces of the elements.
+    Returns the decomposition of the elements.
+    
+    Inputs:
+    * into: must be in ['edges', 'faces', 'simplices', 'angles']
+    * loc: None or labels of the chosen elements.
+    * at: must be in ['labels', 'coords']
     """
+    if type(loc) == type(None):
+      elements = self.elements
+    else:  
+      elements = self.elements.loc[loc]
     out = []
+    for etype, group in elements.groupby([("type", "argiope", "o")]):
+      try:
+        output_maps = getattr(ELEMENTS[etype], into)
+        for om in range(len(output_maps)):
+          oshape = len(output_maps[om])
+          conn = group.conn
+          columns = pd.MultiIndex.from_product([(om,), np.arange(oshape)], 
+                                                names = [into, "vertex"])
+          data = (conn.values[:, output_maps[om]].reshape(len(conn), oshape))
+          df = pd.DataFrame(data = data, 
+                            columns = columns,
+                            index = conn.index).stack((0,1))
+          out.append(df)
+      except:
+        print("Can not extract '{0}' from '{1}'".format(into, etype))                           
+    if len(out) != 0:
+      out = pd.concat(out)
+      out.sort_index(inplace = True)
+      if at == "coords":
+        data = self.nodes.loc[out.values].values
+        out = pd.DataFrame(index = out.index, data = data, 
+                           columns = ["x", "y", "z"])
+      return out 
+
+  def centroids_and_volumes(self):
+    """
+    Returns a dataframe containing volume and centroids of all the elements.
+    """
+    elements = self.elements
+    out = []
+    for etype, group in self.elements.groupby([("type", "argiope", "o")]):
+      etype_info = ELEMENTS[etype]
+      simplices_info = etype_info.simplices
+      index = group.index
+      simplices_data = self.split(into = "simplices", 
+                             loc = index,
+                             at = "coords") 
+      simplices = simplices_data.values.reshape(
+                  index.size, 
+                  simplices_info.shape[0], 
+                  simplices_info.shape[1], 
+                  3) 
+      edges = simplices[:,:,1:] - simplices[:,:,:1] 
+      simplices_centroids = simplices.mean(axis = 2)
+      if etype_info.space == 2:
+        simplices_volumes = np.linalg.norm(
+                  np.cross(edges[:,:,0], 
+                           edges[:,:,1], 
+                           axis = 2),
+                  axis = 2)
+      elif etype_info.space == 3:          
+        simplices_volumes =  (np.cross(edges[:,:,0], 
+                                       edges[:,:,1], axis = 2) 
+                             * edges[:,:, 2]).sum(axis = 2)
+      elements_volumes = simplices_volumes.sum(axis = 1)
+      elements_centroids = ((simplices_volumes.reshape(*simplices_volumes.shape, 1) 
+                          * simplices_centroids).sum(axis = 1) 
+                          / elements_volumes.reshape(*elements_volumes.shape,1))
+      volumes_df = pd.DataFrame(index = index,
+                                data = elements_volumes,
+                                columns = pd.MultiIndex.from_product(
+                                [["volume"], [self._null]]))
+      centroids_df = pd.DataFrame(index = index,
+                                data = elements_centroids,
+                                columns = pd.MultiIndex.from_product(
+                                [["centroid"], ["x", "y", "z"]]))                          
+      out.append(pd.concat([volumes_df, centroids_df], axis = 1))             
+    out = pd.concat(out)  
+    return out
+         
+  def angles(self):
+    """
+    Returns the internal angles of all elements and the associated statistics 
+    """
     elements = self.elements
     etypes = elements.type.argiope.o.unique()
+    out = []
     for etype in etypes:
-      typedata = ELEMENTS[etype]
-      surfmap = typedata[kind]
-      surfshape = surfmap.shape
-      conn = elements.conn[elements.type.argiope.o == etype]
-      elements_labels = ((conn.index.values * np.ones((surfshape[0], 1), 
-                                                       dtype = np.int32))
-                  .T.flatten())
-      surfaces_labels = (np.arange(1,surfshape[0]+1).reshape(surfshape[0],1) 
-                       * np.ones(len(conn), dtype = np.int32)
-                       ).T.flatten()
+      etype_info = ELEMENTS[etype]
+      angles_info = etype_info.angles
+      loc = elements.type.argiope.o == etype
+      index = elements.loc[loc].index
+      angles_data = self.split(into = "angles", 
+                             loc = loc,
+                             at = "coords")
+      data = angles_data.values.reshape(index.size, 
+                                        angles_info.shape[0],
+                                        angles_info.shape[1],
+                                        3)        
+      edges = data[:,:,[0,2],:] - data[:,:,1:2,:]
+      edges /= np.linalg.norm(edges, axis = 3).reshape(
+               index.size, angles_info.shape[0], 2, 1)
+      angles = np.degrees(np.arccos((
+               edges[:,:,0] * edges[:,:,1]).sum(axis = 2)))
 
-      surfconn = conn.values[:, surfmap]
-      surfconn = surfconn.reshape(len(surfconn) * surfshape[0], surfshape[1] )
-      df = pd.DataFrame(data = {"element": elements_labels,
-                                "face": surfaces_labels}, )
-      for i in range(surfshape[1]):
-        df[i] = surfconn[:, i]                  
+      deviation = angles - etype_info.optimal_angles
+      angles_df = pd.DataFrame(index = index, 
+                               data = angles, 
+                               columns = pd.MultiIndex.from_product(
+                                        [["angles"], range(angles_info.shape[0])]))
+      deviation_df = pd.DataFrame(index = index, 
+                               data = deviation, 
+                               columns = pd.MultiIndex.from_product(
+                                        [["deviation"], range(angles_info.shape[0])]))
+      df = pd.concat([angles_df, deviation_df], axis = 1)
+      df["stats", "max_angle"] = df.angles.max(axis = 1)
+      df["stats", "min_angle"] = df.angles.min(axis = 1)
+      df["stats", "max_deviation"] = df.deviation.max(axis = 1)
+      df["stats", "min_deviation"] = df.deviation.min(axis = 1)
       out.append(df)
-    out = pd.concat(out)
-    return out.sort_values(["element", "face"])  
-    
+    out = pd.concat(out)  
+    return out
   
+  def stats(self):
+    """
+    Returns geometric and 
+    """
+    cv = self.centroids_and_volumes()
+    angles  = self.angles()
+    return pd.concat([cv , angles[["stats"]] ], axis = 1)
+        
   def element_set_to_node_set(self, tag):
     """
     Makes a node set from an element set.
@@ -383,7 +465,7 @@ class Mesh:
     #TRIANGLES
     x, y, tri = [], [], []
     for i in range(len(etype)):
-      triangles = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplex"]]
+      triangles = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplices"]]
       for t in triangles:
         tri.append(t)
     triangulation = mpl.tri.Triangulation(coords[:,0], coords[:,1], tri)
@@ -738,13 +820,13 @@ def read_h5(hdfstore, group = ""):
   
 
 def read_msh(path):
-  elementMap = { 1:"Line2",
-                 2:"Tri3",
-                 3:"Quad4",
-                 4:"Tetra4",
-                 5:"Hexa8",
-                 6:"Prism6",
-                 7:"Pyra4",
+  elementMap = { 1:"line2",
+                 2:"tri3",
+                 3:"quad4",
+                 4:"tetra4",
+                 5:"hexa8",
+                 6:"prism6",
+                 7:"pyra4",
                }
   lines = np.array(open(path, "r").readlines())
   locs = {}
@@ -815,13 +897,13 @@ def read_inp(path):
   def elementMapper(inpeltype):
     if inpeltype == "t3d2": return "Line2"
     if inpeltype[:3] in ["cps", "cpe", "cax"]:
-      if inpeltype[3] == "3": return "Tri3"
-      if inpeltype[3] == "4": return "Quad4"
+      if inpeltype[3] == "3": return "tri3"
+      if inpeltype[3] == "4": return "quad4"
     if inpeltype[:3] in ["c3d"]:
-      if inpeltype[3] == "4": return "Tetra4"
-      if inpeltype[3] == "5": return "Pyra5"
-      if inpeltype[3] == "6": return "Prism6"
-      if inpeltype[3] == "8": return "Hexa8"
+      if inpeltype[3] == "4": return "tetra4"
+      if inpeltype[3] == "5": return "pyra5"
+      if inpeltype[3] == "6": return "prism6"
+      if inpeltype[3] == "8": return "hexa8"
     
   nlabels      = []
   coords       = []
@@ -938,12 +1020,12 @@ def write_xdmf(mesh, path, dataformat = "XML"):
   attribute_pattern = Template(open(MODPATH + "/templates/mesh/xdmf_attribute.xdmf").read())
   # MAPPINGS
   cell_map = {
-      "Tri3":   4,
-      "Quad4":  5,
-      "Tetra4": 6,
-      "Pyra5":  7,
-      "Prism6": 8,
-      "Hexa8":  9}
+      "tri3":   4,
+      "quad4":  5,
+      "tetra4": 6,
+      "pyra5":  7,
+      "prism6": 8,
+      "hexa8":  9}
   # REFERENCES
   nodes, elements = mesh.nodes.data, mesh.elements.data
   fields = mesh.fields

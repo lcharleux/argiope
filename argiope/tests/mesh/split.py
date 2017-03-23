@@ -6,30 +6,37 @@ ELEMENTS = ag.mesh.ELEMENTS
 mesh = ag.mesh.read_msh("demo.msh")
 elements = mesh.elements
 
+
 into = "simplices"
 at  = "coords"
 out = []
-etypes = elements.type.argiope.o.unique()
-for etype in etypes:
-  output_map = ELEMENTS[etype][into]
-  info_shape = output_map.shape
-  conn = elements.conn[elements.type.argiope.o == etype]
-  columns = pd.MultiIndex.from_product([ np.arange(info_shape[0]), 
-                                         np.arange(info_shape[1]) ],
-                                         names = [into, "vertex"])
-  data = (conn.values[:, output_map].reshape(len(conn),
-          info_shape[0] * info_shape[1]))
-  df = pd.DataFrame(data = data, 
-                    columns = columns,
-                    index = conn.index).stack((0,1))
-  out.append(df)                      
+loc = None
 
-  
-out = pd.concat(out)
-if at == "coords":
-  data = mesh.nodes.loc[out.values].values
-  out = pd.DataFrame(index = out.index, data = data, columns = ["x", "y", "z"])
-
+if True:
+  if type(loc) == type(None):
+    elements = mesh.elements
+  else:  
+    elements = mesh.elements.loc[loc]
+  out = []
+  for etype, group in mesh.elements.groupby([("type", "argiope", "o")]):
+    output_map = ELEMENTS[etype][into]
+    info_shape = output_map.shape
+    conn = group.conn
+    columns = pd.MultiIndex.from_product([ np.arange(info_shape[0]), 
+                                           np.arange(info_shape[1]) ],
+                                           names = [into, "vertex"])
+    data = (conn.values[:, output_map].reshape(len(conn),
+            info_shape[0] * info_shape[1]))
+    df = pd.DataFrame(data = data, 
+                      columns = columns,
+                      index = conn.index).stack((0,1))
+    out.append(df)                      
+  out = pd.concat(out)
+  out.sort_index(inplace = True)
+  if at == "coords":
+    data = mesh.nodes.loc[out.values].values
+    out = pd.DataFrame(index = out.index, data = data, columns = ["x", "y", "z"])
+   
 """
 
   

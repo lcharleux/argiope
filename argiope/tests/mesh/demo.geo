@@ -29,6 +29,16 @@ Line Loop(1) = {6,7}; // interior loop
 Line Loop(2) = {1,2,3,4,5}; // exterior loop
 Line Loop(3) = {8,9};// hole
 //Plane Surface(1) = {1}; // interior surface
-Plane Surface(2) = {2,1,3}; // exterior surface (with a hole)
+Plane Surface(2) = {2}; // exterior surface (with a hole)
 Recombine Surface {2};
-Physical Surface("SURFACE") = {2};
+
+//Physical Surface("SURFACE") = {2, 1, 3};
+
+
+ext[] = Extrude {0, 0, .1} {
+    Surface{2};
+    Layers{1};
+    Recombine;
+  };
+  
+Physical Volume("bulk") = ext[1];
