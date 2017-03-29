@@ -1,30 +1,23 @@
 import argiope as ag
 import numpy as np
 import pandas as pd
-args = tuple()
-kwargs = {}
 
 
-
-from matplotlib import collections
 ELEMENTS = ag.mesh.ELEMENTS
 mesh = ag.mesh.read_msh("demo.msh")
-nodes, elements = mesh.nodes, mesh.elements.reset_index()
+tag = "SURFACE"
 
-verts = []
-index = []
+nodes, elements = mesh.nodes, mesh.elements
+loc = elements.conn[elements.sets.SURFACE[mesh._null]].stack().stack().unique()
+loc = loc[loc != 0]
+nodes.loc[loc, ("sets", tag) ] = True
 
-for etype, group in elements.groupby([("type", "argiope", mesh._null)]):
-  index += list(group.index)
-  nvert = ELEMENTS[etype].nvert
-  conn = group.conn.values[:, :nvert].flatten()
-  coords = nodes.coords[["x", "y"]].loc[conn].values.reshape(
-                                        len(group), nvert, 2)
-  verts += list(coords)
-verts = np.array(verts)
-verts= verts[np.argsort(index)]
- 
-  
+"""
+loc = mesh.elements.loc[:, ("sets", tag, self._null)].as_matrix().flatten()
+nlabels = np.unique(self.elements.conn.as_matrix()[loc].flatten())
+self.nodes[("sets", tag)] = False
+self.nodes.loc[nlabels, ("sets", tag)] = False 
+"""
 """
 coords = mesh.nodes.coords.copy()
 node_map  = pd.Series(data = np.arange(len(coords)), index = coords.index)

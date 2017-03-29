@@ -5,6 +5,10 @@ import matplotlib as mpl
 import os
 
 mesh = ag.mesh.read_msh("demo.msh")
+"""
+mesh = ag.mesh.read_msh("sample_mesh_2D.msh")
+mesh.elements = mesh.elements.loc[mesh.space() == 2]
+"""
 edge_color = "black"
 face_color = "blue"
 edge_width = .2
@@ -44,18 +48,19 @@ tri = mesh.to_triangulation()
 patches = mesh.to_polycollection(facecolor = "none",
                                  edgecolor = "black",
                                  linewidth = .5)
-
 def field(x, y):
   r = ((y-.5)**2 +(x-.5)**2)**.5
   return np.cos(4. * np.pi *r) + 4 * x 
 v = field(tri.x, tri.y) 
 
 
+
+
 fig = plt.figure()
 ax = fig.add_subplot(1,1,1)
 ax.set_aspect("equal")
-ax.set_xlim(-.1, 1.1)
-ax.set_ylim(-.1, 1.1)
+ax.set_xlim(-.1, 1.)
+ax.set_ylim(-.1, 1.)
 
 grad = ax.tricontourf(tri, v, 10,  cmap = mpl.cm.jet)
 ax.tricontour(tri, v, 10, colors = "white", linewidth = 4.)

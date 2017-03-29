@@ -37,7 +37,11 @@ class Element2D(Element):
     self.angles = angles
     self.optimal_angles = optimal_angles
     super().__init__(*args, **kwargs)
-
+  
+  def get_surfaces(self):
+    return self.edges
+  surfaces = property(get_surfaces)  
+    
 class Element3D(Element):
   space = 3
   
@@ -51,6 +55,9 @@ class Element3D(Element):
                            for i in range(len(self.faces))])
   angles = property(get_angles)  
   
+  def get_surfaces(self):
+    return self.faces
+  surfaces = property(get_surfaces)
   
    
 ELEMENTS = {
@@ -224,6 +231,12 @@ class Mesh:
     # Materials
     self.elements["materials"] = materials
     
+  def copy(self):
+    """
+    Returns a copy of the mesh.
+    """
+    return copy.copy(self)
+  
   def check_elements(self):
     """
     Checks element definitions.
@@ -249,15 +262,15 @@ class Mesh:
     """
     Returns the dimension of the embedded space of each element.
     """
-    return self.elements.type.argiope.applymap(
-                               lambda t: ELEMENTS[t]["space"])  
+    return self.elements.type.argiope[self._null].map(
+           lambda t: ELEMENTS[t].space)  
   
   def nvert(self):
     """
     Returns the number of vertices of eache element according to its type/
     """
-    return self.elements.type.argiope.applymap(
-                               lambda t: ELEMENTS[t]["nvert"])  
+    return self.elements.type.argiope[self._null].map(
+           lambda t: ELEMENTS[t].nvert)   
   
   def split(self, into = "edges", loc = None, 
             at = "labels", sort_index = True):
@@ -382,8 +395,9 @@ class Mesh:
       df = pd.concat([angles_df, deviation_df], axis = 1)
       df["stats", "max_angle"] = df.angles.max(axis = 1)
       df["stats", "min_angle"] = df.angles.min(axis = 1)
-      df["stats", "max_deviation"] = df.deviation.max(axis = 1)
-      df["stats", "min_deviation"] = df.deviation.min(axis = 1)
+      df["stats", "max_angular_deviation"] = df.deviation.max(axis = 1)
+      df["stats", "min_angular_deviation"] = df.deviation.min(axis = 1)
+      df["stats", "max_abs_angular_deviation"] = abs(df.deviation).max(axis = 1)      
       out.append(df)
     out = pd.concat(out)  
     return out
@@ -418,36 +432,63 @@ class Mesh:
     """
     Makes a node set from an element set.
     """
-    loc = self.elements.loc[:, ("sets", tag, self._null)].as_matrix().flatten()
-    nlabels = np.unique(self.elements.conn.as_matrix()[loc].flatten())
-    self.nodes[("sets", tag)] = False
-    self.nodes.loc[nlabels, ("sets", tag)] = False 
+    nodes, elements = self.nodes, self.elements
+    loc = (elements.conn[elements[("sets", tag, self._null)]]
+           .stack().stack().unique())
+    loc = loc[loc != 0]
+    nodes[("sets", tag)] = False
+    nodes.loc[loc, ("sets", tag) ] = True
 
   def node_set_to_surface(self, tag):
     """
     Converts a node set to surface.
     """
-    faces = self.faces()
-    surf = pd.DataFrame(np.prod(self.nodes.sets[tag].loc[faces.values.flatten()]
-           .values.reshape(faces.shape),axis = 1)
-           .astype(np.bool),
-           index = faces.index).unstack()
+    # Create a dummy node with label 0
+    nodes = self.nodes.copy()
+    dummy = nodes.iloc[0].copy()
+    dummy["coords"] *= np.nan
+    dummy["sets"] = True
+    nodes.loc[0] = dummy
+    # Getting element surfaces
+    element_surfaces= self.split("surfaces").unstack()
+    # killer hack !
+    surf = pd.DataFrame(
+             nodes.sets[tag].loc[element_surfaces.values.flatten()]
+                   .values.reshape(element_surfaces.shape)
+                   .prod(axis = 1)
+                   .astype(np.bool),
+             index = element_surfaces.index).unstack().fillna(False)
     for k in surf.keys():
       self.elements["surfaces", tag, k[1]] = surf.loc[:, k]
+    
+    
+  def surface_to_element_sets(self, tag):
+    """
+    Creates elements sets corresponding to a surface.
+    """
+    surface = self.elements.surfaces[tag]
+    for findex in surface.keys():
+      if surface[findex].sum() != 0:
+        self.elements[("sets", "_SURF_{0}_FACE{1}"
+                     .format(tag, findex), self._null)] = surface[findex]
     
   def to_polycollection(self, *args, **kwargs):
     """
     Returns the mesh as matplotlib polygon collection. (tested only for 2D meshes)
     """                          
     from matplotlib import collections
-    nodes, elements = self.nodes, self.elements
+    nodes, elements = self.nodes, self.elements.reset_index()
     verts = []
+    index = []
     for etype, group in elements.groupby([("type", "argiope", self._null)]):
+      index += list(group.index)
       nvert = ELEMENTS[etype].nvert
       conn = group.conn.values[:, :nvert].flatten()
       coords = nodes.coords[["x", "y"]].loc[conn].values.reshape(
                                             len(group), nvert, 2)
       verts += list(coords)
+    verts = np.array(verts)
+    verts= verts[np.argsort(index)]
     return collections.PolyCollection(verts, *args,**kwargs )
     
   def to_triangulation(self):
@@ -491,288 +532,6 @@ class VectorField(Field):
 class ScalarField(Field):
   _columns = ["v"]  
     
-    
-''' 
-class Elements(Container):
-
-  def __init__(self, labels = None, etypes =  None, connectivity = None, surfaces = {}, maxconn = 8, *args, **kwargs):
-    if connectivity != None: 
-      maxconn = max( maxconn, max([len(c) for c in connectivity]))
-      data = {"etype": etypes}
-      for i in range(maxconn): data["n{0}".format(i)] = []
-      for c in connectivity:
-        lc = len(c)
-        for i in range(maxconn):
-          if i >= lc: 
-            data["n{0}".format(i)] .append(np.nan)
-          else:
-            data["n{0}".format(i)] .append(c[i])
-      self.data = pd.DataFrame(data, index = labels)
-    else:
-      cols = ["n{0}".format(i) for i in range(maxconn)]            
-      self.data = pd.DataFrame(columns = cols)
-    self.surfaces = {}
-    for tag, data in surfaces.items(): 
-      self.add_surface(tag, data)
-    Container.__init__(self, *args, **kwargs)       
-  
-  def __repr__(self):
-    return "{0} Elements  ({1} sets, {2} surfaces)".format(len(self.data), len(self.sets), len(self.surfaces))
-  
-  def add_surface(self, tag, data):
-    """
-    Adds a surface.
-    """   
-    self.surfaces[tag] = pd.DataFrame(data, columns = ["element", "face"]) 
-  
-  def space(self):
-    df = self.data
-    return pd.Series([ELEMENTS[e]["space"] for e in df.etype], index = df.index)
-  
-  def nvert(self):
-    df = self.data
-    return pd.Series([ELEMENTS[e]["nvert"] for e in df.etype], index = df.index)
-  
-  def save(self):
-    hdf = pd.HDFStore(self.master.h5path)
-    hdf["elements/connectivity"] = self.data
-    for k, s in self.sets.items():
-      hdf["elements/sets/{0}".format(k)] = pd.Series(list(s))
-    for k, s in self.surfaces.items():
-      hdf["elements/surfaces/{0}".format(k)] = s
-    
-    hdf.close()
-  
-  def faces(self):
-    """
-    Returns the faces of the elements.
-    """
-    data = self.data
-    element_faces = []
-    face_labels   = []
-    face_number   = []
-    element_labels = np.array(data.index)
-    conn_keys = self._connectivity_keys()
-    element_connectivity = np.array(data[conn_keys])
-    element_etype        = np.array(data.etype)
-
-    for i in range(len(element_labels)):
-      etype = element_etype[i]
-      conn  = element_connectivity[i]
-      label = element_labels[i]
-      if   ELEMENTS[etype]["space"] == 1:
-        faces = []
-      elif   ELEMENTS[etype]["space"] == 2:
-        faces = ELEMENTS[etype]["edges"]
-      elif ELEMENTS[etype]["space"] == 3:
-        faces = ELEMENTS[etype]["faces"]
-      fn = 0
-      for face in faces:
-        element_faces.append(set(np.int32(conn[face])))
-        face_labels.append(label)
-        face_number.append(fn)
-        fn += 1
-    return face_labels, face_number, element_faces
-  
-     
-  def _connectivity_keys(self):
-    return ["n{0}".format(i) for i in range(self.data.shape[1]-1)]      
-
-class Field(object):
-  """
-  A field meta class
-  """
-  def __init__(self, metadata = None, data = None, master = None):
-    if metadata == None: metadata = {}
-    self.metadata = pd.Series(metadata)
-    self.data = pd.DataFrame(data, columns = self._columns)
-    self.master = master
-
-  def save(self, tag): 
-    hdf = pd.HDFStore(self.master.h5path)
-    hdf["fields/{0}/data".format(tag)] = self.data
-    hdf["fields/{0}/metadata".format(tag)] = self.metadata
-    hdf.close()
-
-def ScalarField(Field):
-  """
-  A scalar field class.
-  """
-  _columns = ["v"]
-  
-
-class VectorField(Field):
-  """
-  A vector field class.
-  """
-  _columns = ["v1", "v2", "v3"]
-  
-class Tensor6Field(Field):
-  """
-  A symmetrictensor field class.
-  """
-  _columns = ["v11", "v22", "v33", "v12", "v13", "v23"]
-  
-    
-
-       
-class Mesh(object):
-  def __repr__(self): return "<Mesh: {0} / {1}>".format(
-                          self.nodes.__repr__(), self.elements.__repr__())
-  
-  def __init__(self, nlabels = None, coords = None, elabels = None, etypes = None, connectivity = None, nsets = {}, esets = {}, surfaces = {}, fields = {}, h5path = None):
-    self.nodes    = Nodes(    labels = nlabels, coords = coords, sets = nsets, 
-                              master = self)
-    self.elements = Elements( labels = elabels, connectivity = connectivity, 
-                              etypes = etypes, sets = esets, 
-                              surfaces = surfaces, master = self)
-    self.fields = {}
-    self.h5path = h5path
-
-  def save(self, h5path = None):
-    """
-    Saves the mesh instance to the hdf store.
-    """
-    if h5path != None:
-      self.h5path = h5path
-    self.nodes.save()
-    self.elements.save()
-    for tag, field in self.fields.items():
-      field.save(tag= tag)
-  
-  def to_inp(self, path = None, element_map = {}):
-    return write_inp(self, path, element_map)
-  
-  def element_set_to_node_set(self, tag):
-    """
-    Makes a node set from an element set.
-    """
-    keys = self.elements._connectivity_keys()
-    eset = list(self.elements.sets[tag])
-    labels = np.array(list(set(self.elements.data.loc[eset][keys].as_matrix().flatten())))
-    labels = labels[np.isnan(labels) == False].astype(np.int32)
-    labels.sort()
-    self.nodes.add_set(tag, labels)
-    
-  def node_set_to_surface(self, tag):
-    """
-    Converts a node set to surface.
-    """
-    elabels, flabels, faces = self.elements.faces()
-    nset = self.nodes.sets[tag]
-    surf = []
-    for i in range(len(faces)):
-      if nset.issuperset(faces[i]): surf.append((elabels[i], flabels[i]))
-    self.elements.add_surface(tag, surf)
-  
-  def surface_to_mesh(self, tag):
-    """
-    Converts a surface to a new mesh.
-    """
-    elements, nodes = self.elements, self.nodes
-    surf = elements.surfaces[tag]
-    out = {"nlabels": [], "coords":[], "connectivity":[]}
-    for row in surf.iterrows():
-      print(row) 
-    
-    
-    
-  def add_field(self, tag, field):
-    """
-    Add a field to the mesh instance.
-    """
-    field.master = self
-    self.fields[tag] = field  
-  
-  def to_polycollection(self, *args, **kwargs):
-    """
-    Returns the mesh as matplotlib polygon collection. (tested only for 2D meshes)
-    """                          
-    nodes, elements = self.nodes.data, self.elements.data
-    #NODES
-    nodes_map = np.arange(nodes.index.max()+1)
-    nodes_map[nodes.index] = np.arange(len(nodes.index))
-    nodes_map[0] = -1
-    coords = nodes.as_matrix()
-    #ELEMENTS
-    cols = self.elements._connectivity_keys()
-    connectivities  = elements[cols].as_matrix()
-    connectivities[np.isnan(connectivities)] = 0
-    connectivities = connectivities.astype(np.int32)
-    connectivities = nodes_map[connectivities]
-    labels          = np.array(elements.index)
-    etype           = np.array(elements.etype)
-    #FACES
-    verts = []
-    for i in range(len(etype)):
-      face = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["faces"]]
-      vert = np.array([coords[n] for n in face])
-      verts.append(vert[:,:2])
-    verts = np.array(verts)
-    patches = collections.PolyCollection(verts, *args,**kwargs )
-    return patches
-  
-  def centroids_and_volumes(self):
-    """
-    Returns the centroid and the volume of each element.
-    """
-    nodes, elements = self.nodes.data, self.elements.data
-    #NODES
-    nodes_map = np.arange(nodes.index.max()+1)
-    nodes_map[nodes.index] = np.arange(len(nodes.index))
-    nodes_map[0] = -1
-    coords = nodes.as_matrix()
-    #ELEMENTS
-    cols = self.elements._connectivity_keys()
-    connectivities  = elements[cols].as_matrix()
-    connectivities[np.isnan(connectivities)] = 0
-    connectivities = connectivities.astype(np.int32)
-    connectivities = nodes_map[connectivities]
-    etype           = np.array(elements.etype)
-    #CENTROIDS & VOLUME
-    centroids, volumes = [], []
-    for i in range(len(etype)):
-      simplices = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplex"]]
-      simplices = np.array([ [coords[n] for n in simp] for simp in simplices])
-      v = np.array([argiope.mesh.tri_area(simp) for simp in simplices])
-      g = np.array([simp.mean(axis=0) for simp in simplices])
-      vol = v.sum()
-      centroids.append((g.transpose()*v).sum(axis=1) / vol)
-      volumes.append(vol)
-    centroids = np.array(centroids)
-    volumes   = np.array(volumes)
-    return centroids, volumes
-  
-  def to_triangulation(self):
-    """
-    Returns the mesh as a matplotlib.tri.Triangulation instance. (2D only)
-    """
-    nodes, elements = self.nodes.data, self.elements.data
-    #NODES
-    nodes_map = np.arange(nodes.index.max()+1)
-    nodes_map[nodes.index] = np.arange(len(nodes.index))
-    nodes_map[0] = -1
-    coords = nodes.as_matrix()
-    #ELEMENTS
-    cols = self.elements._connectivity_keys()
-    connectivities  = elements[cols].as_matrix()
-    connectivities[np.isnan(connectivities)] = 0
-    connectivities = connectivities.astype(np.int32)
-    connectivities = nodes_map[connectivities]
-    labels          = np.array(elements.index)
-    etype           = np.array(elements.etype)
-    #TRIANGLES
-    x, y, tri = [], [], []
-    for i in range(len(etype)):
-      triangles = connectivities[i][argiope.mesh.ELEMENTS[etype[i]]["simplex"]]
-      for t in triangles:
-        tri.append(t)
-    triangulation = mpl.tri.Triangulation(coords[:,0], coords[:,1], tri)
-    return triangulation  
- 
-'''  
-  
-                          
 ################################################################################
     
 

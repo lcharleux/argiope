@@ -10,6 +10,8 @@ mpl.rcParams['grid.linewidth'] = 0.5
 
 
 mesh = ag.mesh.read_msh("demo.msh")
+#mesh = ag.mesh.read_msh("sample_mesh_2D.msh")
+#mesh.elements = mesh.elements.loc[mesh.space() == 2]
 edge_color = "black"
 face_color = "blue"
 edge_width = .2
@@ -46,22 +48,22 @@ centroids = np.array(centroids)
 volumes   = np.array(volumes)
 """
 patches = mesh.to_polycollection(edgecolor = "black", linewidth = .1)
-cv = mesh.centroids_and_volumes()
-patches.set_array(cv.volume.iloc[:,0].values)
+stats = mesh.stats()
+patches.set_array( stats.stats.max_abs_angular_deviation )
 patches.set_cmap(mpl.cm.jet)
 fig = plt.figure()
 ax = fig.add_subplot(1,1,1)
 ax.set_aspect("equal")
-ax.set_xlim(-.1, 1.1)
-ax.set_ylim(-.1, 1.1)
+ax.set_xlim(-.1, 1.)
+ax.set_ylim(-.1, 1.)
 ax.add_collection(patches)
 
 cbar = plt.colorbar(patches)
 cbar.set_label("Element Volume, $V$ ")
 #plt.plot(centroids[:,0], centroids[:,1], ",k")
 #plt.axis('off')
-plt.xticks([0.,.5,  1.])
-plt.yticks([0.,.5,  1.])
+#plt.xticks([0.,.5,  1.])
+#plt.yticks([0.,.5,  1.])
 plt.xlabel("$x$")
 plt.ylabel("$y$")
 plt.grid()
