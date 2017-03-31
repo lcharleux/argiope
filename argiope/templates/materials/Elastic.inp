@@ -1,0 +1,3 @@
+*MATERIAL, NAME = $label
+*ELASTIC
+  $Young_modulus, $Poisson_ratio

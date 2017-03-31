@@ -10,6 +10,8 @@ mesh= hd.models.sample_mesh_2D( Nx = 4, Ny = 4, Nr = 2, Nt = 8, r2 = 4)
 maxwidth = 80
 sections = "solid"
 
+mesh.write_inp(path = "inp.inp")
+"""
 def set_to_inp(sets, keyword):
   ss = ""
   for sk in sets.keys():
@@ -91,6 +93,6 @@ pattern = pattern.substitute(
   ELEMENT_SURFACES = "\n".join(surf_output),
   SECTIONS = section_output.strip())
 pattern = pattern.strip()
+"""
 
-
-open("inp.inp", "w").write(pattern)
+#open("inp.inp", "w").write(pattern)

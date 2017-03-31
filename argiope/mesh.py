@@ -501,6 +501,12 @@ class Mesh:
     node_map  = pd.Series(data = np.arange(len(coords)), index = coords.index)
     conn = node_map.loc[conn.values.flatten()].values.reshape(*conn.shape)
     return Triangulation(coords.x.values, coords.y.values, conn)
+  
+  def write_inp(self, *args, **kwargs):
+    """
+    Exports the mesh to the Abaqus INP format.
+    """
+    return write_inp(self, *args, **kwargs)
       
 class Field:
   _positions = ["node", "element"]
@@ -891,70 +897,96 @@ def write_xdmf(mesh, path, dataformat = "XML"):
      ATTRIBUTES     = fields_string)
   open(path + ".xdmf", "wb").write(pattern)
 
-def write_inp(mesh, path = None, element_map = {}, maxwidth = 80):
+def write_inp(mesh, path = None, element_map = {}, 
+              maxwidth = 80, sections = "solid"):
   """
   Exports the mesh to the INP format.
   """
   def set_to_inp(sets, keyword):
     ss = ""
-    for tag, labels in sets.items():
+    for sk in sets.keys():
+      labels = sets[sk].loc[sets[sk]].index.values
       labels = list(labels)
       labels.sort()
       if len(labels)!= 0:
-        ss += "*{0}, {0}={1}\n".format(keyword, tag)
-        line = ""
-        counter = 0
+        ss += "*{0}, {0}={1}\n".format(keyword, sk)
+        line = "  "
+        counter = 2
         for l in labels:
           counter += 1
           s = "{0},".format(l)
-          if (len(s) + len(line) < maxwidth) and counter <16:
+          if (len(s) + len(line) < maxwidth) and counter <maxwidth:
             line += s
           else:
-            ss += line + "\n"
+            ss += line + "\n  "
             line = s
-            counter = 0
+            counter = 2
         ss += line
       ss += "\n"
     return ss.strip()[:-1]            
-  
+
+  # DATA
+  mesh = mesh.copy()
+
+  # NODES
+  nodes_output = (mesh.nodes.coords.to_csv(header = False).split())
+  nodes_output = ("\n".join(["  " + s.replace(",", ", ") for s in nodes_output]))
+
   # SURFACES 
-  surf_string = []
-  element_sets = copy.copy(mesh.elements.sets)
-  for tag, surface in mesh.elements.surfaces.items():
-    surf_string.append( "*SURFACE, TYPE=ELEMENT, NAME={0}".format(tag))
-    faces = surface.face.unique()
-    for face in faces:
-      element_sets["_SURF_{0}_FACE{1}".format(tag, face+1)] =  set(
-                   surface[surface.face == face].element)
-      surf_string.append("  _SURF_{0}_FACE{1}, S{1}".format(tag, face+1)) 
+  surf_output = []
+  sk = mesh.elements.surfaces.keys()
+  for sindex in  np.unique(sk.labels[0]):
+    slabel = sk.levels[0][sindex]
+    surface = mesh.elements.surfaces[slabel]
+    if surface.values.sum() != 0:
+      mesh.surface_to_element_sets(slabel)
+      surf_output.append( "*SURFACE, TYPE=ELEMENT, NAME={0}".format(slabel))
+      for findex in surface.keys():
+        surf_output.append("  _SURF_{0}_FACE{1}, S{1}".format(slabel, findex+1)) 
+
   # ELEMENTS
-  conn_keys = mesh.elements._connectivity_keys()
-  elements = mesh.elements.data
-  etypes = elements.etype.unique()
-  el_string = ""
-  for etype in etypes:
-    new_etype = etype
-    if etype in element_map.keys(): 
-      new_etype = element_map[etype]
-    el_string += "*ELEMENT, TYPE={0}, ELSET={0}_ELEMENTS\n".format(new_etype)
-    els = elements[conn_keys][elements.etype == etype]
-    els = els.to_csv(header = False, float_format='%.0f').split()
-    el_string += ",\n".join([s.strip(",").replace(",", ", ") for s in els])
-    el_string += "\n"
-  el_string = el_string.strip()  
+  elements_output = ""
+  for etype, group in mesh.elements.groupby((("type", "solver", mesh._null),)):
+    els = group.conn.replace(0, np.nan).to_csv(header = False, 
+                                               float_format='%.0f').split()
+    elements_output += "*ELEMENT, TYPE={0}\n".format(etype)
+    elements_output += ("\n".join(["  " + s.strip().strip(",").
+                             replace(",", ", ") for s in els]))
+    elements_output += "\n"
+  elements_output = elements_output.strip() 
+  el_sets = {} 
+
+  # MATERIALS
+  section_output = ""
+  for material, group in mesh.elements.groupby("materials"):
+    slabel = "_MAT_{0}".format(material)
+    mesh.elements[("sets", slabel, mesh._null)] = False
+    mesh.elements.loc[group.index, ("sets", slabel, mesh._null)] = True
+    if sections == "solid":
+      section_output += "*SOLID SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n".format(
+       material)
+
+  # ELEMENTS SETS
+  ek = mesh.elements.sets.keys()
+  for esindex in  np.unique(ek.labels[0]):
+    eslabel = ek.levels[0][esindex]
+    eset = mesh.elements.sets[slabel]
+     
   # PATTERN
   pattern = Template(open(MODPATH + "/templates/mesh/inp.inp").read())
   pattern = pattern.substitute(
-    NODES     = mesh.nodes.data.to_csv(header = False).replace(",", ", ").strip(),
+    NODES     = nodes_output,
     NODE_SETS = set_to_inp(mesh.nodes.sets, "NSET"),
-    ELEMENTS  = el_string,
-    ELEMENT_SETS = set_to_inp(element_sets, "ELSET"),
-    ELEMENT_SURFACES = "\n".join(surf_string))
+    ELEMENTS  = elements_output,
+    ELEMENT_SETS = set_to_inp(mesh.elements.sets
+                   .swaplevel(1,0, axis = 1)[mesh._null], "ELSET"),
+    ELEMENT_SURFACES = "\n".join(surf_output),
+    SECTIONS = section_output.strip())
   pattern = pattern.strip()
   if path == None:            
     return pattern
   else:
-    open(path, "wb").write(pattern)
+    open(path, "w").write(pattern)
   
 
 ################################################################################
