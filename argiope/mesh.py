@@ -155,13 +155,13 @@ class Mesh:
                      coords = None, 
                      nsets = None, 
                      elabels = None, 
-                     etypes = None, 
-                     stypes = None, 
+                     etypes = "", 
+                     stypes = "", 
                      conn = None, 
                      esets = None, 
                      surfaces = None, 
                      fields = None,
-                     materials = None):
+                     materials = ""):
     self.set_nodes(labels = nlabels, 
                    coords = coords, 
                    sets = nsets)
@@ -196,12 +196,12 @@ class Mesh:
       for k, v in sets.items(): self.nodes["sets", k] = v
         
   def set_elements(self, labels= None, 
-                         types = None, 
-                         stypes = None, 
+                         types = "", 
+                         stypes = "", 
                          conn = None, 
                          sets = None, 
                          surfaces = None, 
-                         materials = None):
+                         materials = ""):
     """
     Sets the element data
     """
@@ -459,7 +459,7 @@ class Mesh:
                    .astype(np.bool),
              index = element_surfaces.index).unstack().fillna(False)
     for k in surf.keys():
-      self.elements["surfaces", tag, k[1]] = surf.loc[:, k]
+      self.elements["surfaces", tag, k[1]+1] = surf.loc[:, k]
     
     
   def surface_to_element_sets(self, tag):
@@ -507,6 +507,15 @@ class Mesh:
     Exports the mesh to the Abaqus INP format.
     """
     return write_inp(self, *args, **kwargs)
+  
+  def save(self, store, group = ""):
+    """
+    Saves the mesh in a given HDFstore object and in a given group.
+    """
+    store[group + "elements"] = self.elements
+    store[group + "nodes"]    = self.nodes
+    
+  
       
 class Field:
   _positions = ["node", "element"]
@@ -897,8 +906,7 @@ def write_xdmf(mesh, path, dataformat = "XML"):
      ATTRIBUTES     = fields_string)
   open(path + ".xdmf", "wb").write(pattern)
 
-def write_inp(mesh, path = None, element_map = {}, 
-              maxwidth = 80, sections = "solid"):
+def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
   """
   Exports the mesh to the INP format.
   """
@@ -915,14 +923,13 @@ def write_inp(mesh, path = None, element_map = {},
         for l in labels:
           counter += 1
           s = "{0},".format(l)
-          if (len(s) + len(line) < maxwidth) and counter <maxwidth:
+          if (len(s) + len(line) < maxwidth) and counter < maxwidth:
             line += s
           else:
             ss += line + "\n  "
             line = s
             counter = 2
-        ss += line
-      ss += "\n"
+        ss += line + "\n"
     return ss.strip()[:-1]            
 
   # DATA
@@ -942,7 +949,8 @@ def write_inp(mesh, path = None, element_map = {},
       mesh.surface_to_element_sets(slabel)
       surf_output.append( "*SURFACE, TYPE=ELEMENT, NAME={0}".format(slabel))
       for findex in surface.keys():
-        surf_output.append("  _SURF_{0}_FACE{1}, S{1}".format(slabel, findex+1)) 
+        if surface[findex].sum() != 0:
+          surf_output.append("  _SURF_{0}_FACE{1}, S{1}".format(slabel, findex)) 
 
   # ELEMENTS
   elements_output = ""

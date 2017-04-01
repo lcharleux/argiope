@@ -26,11 +26,11 @@ class Material:
     
       
     
-  def to_inp(self):
+  def write_inp(self):
      """
      Returns the material definition as a string in Abaqus INP format.
      """
-     out = self.scalar_data.to_csv()
+     out = self.scalar_data.to_csv(path= None)
      out = out.split()
      out = "\n".join(["** " + s.replace(",", " = ") for s in out]) + "\n"
      pattern = Template(open(MODPATH + "/templates/materials/{0}.inp".format(
@@ -56,13 +56,13 @@ class ElasticPlastic(Elastic):
   """
   _template = "Elastic"
   
-  def to_inp(self):
-    out = super().to_inp()
+  def write_inp(self):
+    out = super().write_inp()
     out += "*PLASTIC\n"
-    out += "  " + "\n  ".join(self.plastic_data[["stress", "plastic_strain"]].to_csv(
+    out += self.plastic_data[["stress", "plastic_strain"]].to_csv(
            header = False, 
            index = False,
-           sep = ",").replace(",", ", ").split("\n"))
+           sep = ",").strip()
 
     return out
     
