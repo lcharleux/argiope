@@ -150,7 +150,6 @@ class Mesh:
   """
   A single class to handle meshes.
   """
-  _null = "x"
   def __init__(self, nlabels = None, 
                      coords = None, 
                      nsets = None, 
@@ -206,30 +205,31 @@ class Mesh:
     Sets the element data
     """
     # COLUMNS BUILDING
-    columns = pd.MultiIndex.from_tuples([("type", "argiope", self._null)])
+    columns = pd.MultiIndex.from_tuples([("type", "argiope", "")])
     self.elements = pd.DataFrame(data = types, 
                                  columns = columns,
                                  index = labels)
     self.elements.index.name = "element"
-    self.elements.loc[:, ("type", "solver", self._null)] = stypes
+    self.elements.loc[:, ("type", "solver", "")] = stypes
     # Connectivity 
     c = pd.DataFrame(conn, index = labels)
     c.fillna(0, inplace = True)
     c[:] = c.values.astype(np.int32)
     c.columns = pd.MultiIndex.from_product([["conn"], 
-                                            np.arange(c.shape[1]), 
-                                            [self._null]])
+                                            ["n{0}".format(n) for 
+                                             n in np.arange(c.shape[1])], 
+                                            [""]])
     
     self.elements = self.elements.join(c)
     # Sets
     if sets != None:
-      for k, v in sets.items(): self.elements["sets", k, self._null] = v
+      for k, v in sets.items(): self.elements[("sets", k, "")] = v
     if surfaces != None:
       for k, v in surfaces.items():
         for fk, vv in v.items():
-           self.elements["surfaces", k, fk] = vv
+           self.elements[("surfaces", k, "s{0}".format(fk))] = vv
     # Materials
-    self.elements["materials"] = materials
+    self.elements[("materials", "", "") ] = materials
     
   def copy(self):
     """
@@ -262,14 +262,14 @@ class Mesh:
     """
     Returns the dimension of the embedded space of each element.
     """
-    return self.elements.type.argiope[self._null].map(
+    return self.elements.type.argiope.map(
            lambda t: ELEMENTS[t].space)  
   
   def nvert(self):
     """
     Returns the number of vertices of eache element according to its type/
     """
-    return self.elements.type.argiope[self._null].map(
+    return self.elements.type.argiope.map(
            lambda t: ELEMENTS[t].nvert)   
   
   def split(self, into = "edges", loc = None, 
@@ -287,7 +287,7 @@ class Mesh:
     else:  
       elements = self.elements.loc[loc]
     out = []
-    for etype, group in elements.groupby([("type", "argiope", self._null)]):
+    for etype, group in elements.groupby([("type", "argiope", "")]):
       try:
         output_maps = getattr(ELEMENTS[etype], into)
         for om in range(len(output_maps)):
@@ -317,7 +317,7 @@ class Mesh:
     """
     elements = self.elements
     out = []
-    for etype, group in self.elements.groupby([("type", "argiope", self._null)]):
+    for etype, group in self.elements.groupby([("type", "argiope", "")]):
       etype_info = ELEMENTS[etype]
       simplices_info = etype_info.simplices
       index = group.index
@@ -348,7 +348,7 @@ class Mesh:
       volumes_df = pd.DataFrame(index = index,
                                 data = elements_volumes,
                                 columns = pd.MultiIndex.from_product(
-                                [["volume"], [self._null]]))
+                                [["volume"], [""]]))
       centroids_df = pd.DataFrame(index = index,
                                 data = elements_centroids,
                                 columns = pd.MultiIndex.from_product(
@@ -363,12 +363,12 @@ class Mesh:
     Returns the internal angles of all elements and the associated statistics 
     """
     elements = self.elements
-    etypes = elements[("type", "argiope", self._null)].unique()
+    etypes = elements[("type", "argiope")].unique()
     out = []
     for etype in etypes:
       etype_info = ELEMENTS[etype]
       angles_info = etype_info.angles
-      loc = elements[("type", "argiope", self._null)] == etype
+      loc = elements[("type", "argiope", "")] == etype
       index = elements.loc[loc].index
       angles_data = self.split(into = "angles", 
                              loc = loc,
@@ -433,7 +433,7 @@ class Mesh:
     Makes a node set from an element set.
     """
     nodes, elements = self.nodes, self.elements
-    loc = (elements.conn[elements[("sets", tag, self._null)]]
+    loc = (elements.conn[elements[("sets", tag, "")]]
            .stack().stack().unique())
     loc = loc[loc != 0]
     nodes[("sets", tag)] = False
@@ -459,7 +459,7 @@ class Mesh:
                    .astype(np.bool),
              index = element_surfaces.index).unstack().fillna(False)
     for k in surf.keys():
-      self.elements["surfaces", tag, k[1]+1] = surf.loc[:, k]
+      self.elements["surfaces", tag, "f{0}".format(k[1]+1) ] = surf.loc[:, k]
     
     
   def surface_to_element_sets(self, tag):
@@ -470,7 +470,7 @@ class Mesh:
     for findex in surface.keys():
       if surface[findex].sum() != 0:
         self.elements[("sets", "_SURF_{0}_FACE{1}"
-                     .format(tag, findex), self._null)] = surface[findex]
+                     .format(tag, findex[1:]), "")] = surface[findex]
     
   def to_polycollection(self, *args, **kwargs):
     """
@@ -480,7 +480,7 @@ class Mesh:
     nodes, elements = self.nodes, self.elements.reset_index()
     verts = []
     index = []
-    for etype, group in elements.groupby([("type", "argiope", self._null)]):
+    for etype, group in elements.groupby([("type", "argiope", "")]):
       index += list(group.index)
       nvert = ELEMENTS[etype].nvert
       conn = group.conn.values[:, :nvert].flatten()
@@ -950,11 +950,12 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
       surf_output.append( "*SURFACE, TYPE=ELEMENT, NAME={0}".format(slabel))
       for findex in surface.keys():
         if surface[findex].sum() != 0:
-          surf_output.append("  _SURF_{0}_FACE{1}, S{1}".format(slabel, findex)) 
+          surf_output.append("  _SURF_{0}_FACE{1}, S{1}".format(slabel, 
+                                                                findex[1:])) 
 
   # ELEMENTS
   elements_output = ""
-  for etype, group in mesh.elements.groupby((("type", "solver", mesh._null),)):
+  for etype, group in mesh.elements.groupby((("type", "solver", ""),)):
     els = group.conn.replace(0, np.nan).to_csv(header = False, 
                                                float_format='%.0f').split()
     elements_output += "*ELEMENT, TYPE={0}\n".format(etype)
@@ -968,8 +969,8 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
   section_output = ""
   for material, group in mesh.elements.groupby("materials"):
     slabel = "_MAT_{0}".format(material)
-    mesh.elements[("sets", slabel, mesh._null)] = False
-    mesh.elements.loc[group.index, ("sets", slabel, mesh._null)] = True
+    mesh.elements[("sets", slabel, "")] = False
+    mesh.elements.loc[group.index, ("sets", slabel, "")] = True
     if sections == "solid":
       section_output += "*SOLID SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n".format(
        material)
@@ -987,7 +988,7 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
     NODE_SETS = set_to_inp(mesh.nodes.sets, "NSET"),
     ELEMENTS  = elements_output,
     ELEMENT_SETS = set_to_inp(mesh.elements.sets
-                   .swaplevel(1,0, axis = 1)[mesh._null], "ELSET"),
+                   .swaplevel(1,0, axis = 1)[""], "ELSET"),
     ELEMENT_SURFACES = "\n".join(surf_output),
     SECTIONS = section_output.strip())
   pattern = pattern.strip()
