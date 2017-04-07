@@ -146,7 +146,7 @@ ELEMENTS = {
 # MESH CLASSES 
 ################################################################################
   
-class Mesh:
+class Mesh(argiope.utils.Container):
   """
   A single class to handle meshes.
   """
@@ -540,6 +540,14 @@ class Field:
 
 class Tensor6Field(Field):
   _columns = ["v11", "v22", "v33", "v12", "v13", "v23"]
+
+
+class Tensor4Field(Field):
+  _columns = ["v11", "v22", "v33", "v12"]
+
+
+class Tensor3Field(Field):
+  _columns = ["v11", "v22", "v12"]
    
 class VectorField(Field):
   _columns = ["v1", "v2", "v3"]

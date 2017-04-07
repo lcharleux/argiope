@@ -13,7 +13,8 @@ def read_field_report(path, data_flag = "*DATA", meta_data_flag = "*METADATA"):
   mdata = pd.read_csv(mdata, sep = "=", header = None, index_col = 0)
   #mdata.set_index(["values"])
   mdata.index.name = "keys"
-  mdata = mdata[1]
+  #mdata = mdata[1]
+  mdata = mdata.transpose()
   return mdata, data
   """
   

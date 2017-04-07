@@ -81,4 +81,47 @@ class Model:
       print('<Post-Processed {0}: duration {1:.2f}s>'.format(self.label, 
                                                                   t1 - t0)) 
                                                                   
-################################################################################                                                                  
+################################################################################ 
+
+
+################################################################################
+# PART DEFINITION
+class Part:
+
+  def __init__(self, gmsh_path = "gmsh",
+                     file_name = "dummy", 
+                     workdir = "./", 
+                     gmsh_space = 2, 
+                     gmsh_options = "",
+                     element_map = None,
+                     material_map = None):
+    self.gmsh_path  = gmsh_path
+    self.file_name  = file_name
+    self.workdir    = workdir 
+    self.gmsh_space = gmsh_space
+    self.gmsh_options = gmsh_options
+    self.mesh       = None
+    self.element_map = element_map
+    self.material_map = material_map
+    
+  def run_gmsh(self):
+    """
+    Makes the mesh using gmsh.
+    """
+    p = subprocess.Popen("{0} -{1} {2} {3}".format(
+        self.gmsh_path, 
+        self.gmsh_space,
+        self.gmsh_options,
+        self.file_name + ".geo"), 
+        cwd = self.workdir, shell=True, stdout = subprocess.PIPE)  
+    trash = p.communicate()
+    self.mesh = argiope.mesh.read_msh(self.workdir + self.file_name + ".msh")
+    
+  def make_mesh(self):
+    self.preprocess_mesh()
+    self.run_gmsh()
+    self.postprocess_mesh()  
+    
+
+################################################################################ 
+################################################################################                                                                 
