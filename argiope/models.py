@@ -8,7 +8,7 @@ MODPATH = os.path.dirname(inspect.getfile(argiope))
 ################################################################################
 # MODEL DEFINITION
 ################################################################################
-class Model:
+class Model(argiope.utils.Container):
   """
   Model meta class. 
   
@@ -31,6 +31,7 @@ class Model:
     self.solver_path = solver_path
     self.workdir     = workdir
     self.verbose     = verbose
+    self.data = {}
    
   def make_directories(self):
     """
@@ -56,6 +57,8 @@ class Model:
                                  shell=True, 
                                  stdout = subprocess.PIPE)
       trash = process.communicate()
+    if self.verbose:
+      print(trash)  
     t1 = time.time()
     if self.verbose: 
       print('<Ran {0}: duration {1:.2f}s>'.format(self.label, t1 - t0))   
@@ -75,7 +78,6 @@ class Model:
                 cwd = self.workdir,
                 stdout = subprocess.PIPE )
       trash = process.communicate()
-      print(trash)
     t1 = time.time()
     if self.verbose: 
       print('<Post-Processed {0}: duration {1:.2f}s>'.format(self.label, 
@@ -86,7 +88,7 @@ class Model:
 
 ################################################################################
 # PART DEFINITION
-class Part:
+class Part(argiope.utils.Container):
 
   def __init__(self, gmsh_path = "gmsh",
                      file_name = "dummy", 

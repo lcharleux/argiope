@@ -171,14 +171,16 @@ class Mesh(argiope.utils.Container):
                       sets = esets, 
                       surfaces = surfaces,
                       materials = materials)
-    self.set_fields(fields)
+    self.fields = []
+    if fields != None:
+      self.fields += fields
     
   
   def __repr__(self):
     return "<Mesh, {0} nodes, {1} elements, {2} fields>".format(
            self.nodes.index.size,
            self.elements.index.size,
-           len(self.fields.keys()))
+           len(self.fields))
   
   def set_nodes(self, labels, coords, sets):
     """
@@ -230,12 +232,6 @@ class Mesh(argiope.utils.Container):
            self.elements[("surfaces", k, "s{0}".format(fk))] = vv
     # Materials
     self.elements[("materials", "", "") ] = materials
-    
-  def copy(self):
-    """
-    Returns a copy of the mesh.
-    """
-    return copy.copy(self)
   
   def check_elements(self):
     """
@@ -249,15 +245,7 @@ class Mesh(argiope.utils.Container):
                        existing_types - allowed_types, allowed_types))
     print("<Elements: OK>")                   
     
-  def set_fields(self, fields = None):
-    """
-    Sets the field data
-    """
-    self.fields = {}
-    if fields != None:
-      for k, v in fields.items():
-        self.fields[k] = v
-   
+  
   def space(self):
     """
     Returns the dimension of the embedded space of each element.
@@ -306,7 +294,7 @@ class Mesh(argiope.utils.Container):
       out = pd.concat(out)
       out.sort_index(inplace = True)
       if at == "coords":
-        data = self.nodes.loc[out.values].values
+        data = self.nodes.coords.loc[out.values].values
         out = pd.DataFrame(index = out.index, data = data, 
                            columns = ["x", "y", "z"])
       return out 
@@ -507,52 +495,85 @@ class Mesh(argiope.utils.Container):
     Exports the mesh to the Abaqus INP format.
     """
     return write_inp(self, *args, **kwargs)
-  
-  def save(self, store, group = ""):
+    
+  def fields_metadata(self):
     """
-    Saves the mesh in a given HDFstore object and in a given group.
-    """
-    store[group + "elements"] = self.elements
-    store[group + "nodes"]    = self.nodes
+    Returns fields metadata as a dataframe.
+    """  
+    return (pd.concat([f.metadata() for f in self.fields], axis = 1)
+            .transpose()
+            .sort_values(["step_num", "frame", "label", "position"]))
     
   
+################################################################################
+# FIELDS
+################################################################################  
       
-class Field:
+class MetaField(argiope.utils.Container):
+  """
+  A field mother class.
+  """ 
   _positions = ["node", "element"]
-  def __init__(self, position = "node", step = None, frame = None, time = None,   
-               data = None, index = None, custom = None):
-     # Infos
-     if position not in self._positions: 
-       raise ValueError("'position' must be in {0}, got '{1}'".format(
-                        self._positions, position))
-     info = {"position" : position,
-             "step" : step,
-             "frame": frame,
-             "time" : time}
-     self.info = pd.Series(info)
+  
+  def __init__(self, label = None, position = "node", 
+               step_num = None, step_label = None,
+               part = None,
+               frame = None, frame_value = None, 
+               data = None, **kwargs):
+     self.label = label
+     self.position = position
+     self.step_num = step_num
+     self.step_label = step_label
+     self.frame = frame
+     self.part = part
+     self.frame_value = frame_value   
+          
      # Data
-     self.data =  pd.DataFrame(index = index, data = data, 
-                               columns = self._columns)
+     self.data =  data
+     if hasattr(self, "_columns"): 
+       self.data.columns = self._columns
      self.data.index.name = position
-     # Custom data
-     self.custom = pd.Series(custom)
-     
+  
+  def __repr__(self):
+    return "<{0} {1} at {2}; step={3} ('{4}'); frame={5} >".format(
+    self.__class__.__name__, self.label, 
+    self.position, self.step_num, self.step_label, self.frame)
+  
+  def metadata(self):
+    """
+    Returns metadata as a dataframe.
+    """
+    return pd.Series({
+           "part": self.part,
+           "step_num": self.step_num,
+           "step_label": self.step_label,
+           "frame": self.frame,
+           "frame_value": self.frame_value,
+           "label": self.label,
+           "position": self.position,                    
+    })
 
-class Tensor6Field(Field):
+class Field(MetaField):
+  pass     
+
+class Tensor6Field(MetaField):
   _columns = ["v11", "v22", "v33", "v12", "v13", "v23"]
 
 
-class Tensor4Field(Field):
+class Tensor4Field(MetaField):
   _columns = ["v11", "v22", "v33", "v12"]
 
 
-class Tensor3Field(Field):
+class Tensor3Field(MetaField):
   _columns = ["v11", "v22", "v12"]
    
-class VectorField(Field):
+class Vector3Field(MetaField):
   _columns = ["v1", "v2", "v3"]
+
+class Vector2Field(MetaField):
+  _columns = ["v1", "v2"]  
   
-class ScalarField(Field):
+class ScalarField(MetaField):
   _columns = ["v"]  
     
 ################################################################################

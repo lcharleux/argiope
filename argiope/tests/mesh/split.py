@@ -1,9 +1,28 @@
 import argiope as ag
 import numpy as np
 import pandas as pd
+import hardness as hd
 
 ELEMENTS = ag.mesh.ELEMENTS
-mesh = ag.mesh.read_msh("demo.msh")
+#mesh = ag.mesh.read_msh("dummy.msh")
+part = hd.models.SpheroconicalIndenter2D(
+                                   R = 1.,
+                                   psi= 30., 
+                                   r1 = 1., 
+                                   r2 = 3., 
+                                   r3 = 3., 
+                                   lc1 = .05, 
+                                   lc2 = 1.,
+                                   rigid = False,
+                                   gmsh_path = "gmsh",
+                                   file_name = "dummy", 
+                                   workdir = "./", 
+                                   gmsh_space = 2, 
+                                   gmsh_options = "-algo 'delquad'",
+                                   element_map = None,
+                                   material_map = None)
+part.make_mesh()
+mesh = part.mesh
 elements = mesh.elements
 
 
@@ -14,28 +33,34 @@ loc = None
 
 if True:
   if type(loc) == type(None):
-    elements = mesh.elements
+      elements = mesh.elements
   else:  
     elements = mesh.elements.loc[loc]
   out = []
-  for etype, group in mesh.elements.groupby([("type", "argiope", "o")]):
-    output_map = ELEMENTS[etype][into]
-    info_shape = output_map.shape
-    conn = group.conn
-    columns = pd.MultiIndex.from_product([ np.arange(info_shape[0]), 
-                                           np.arange(info_shape[1]) ],
-                                           names = [into, "vertex"])
-    data = (conn.values[:, output_map].reshape(len(conn),
-            info_shape[0] * info_shape[1]))
-    df = pd.DataFrame(data = data, 
-                      columns = columns,
-                      index = conn.index).stack((0,1))
-    out.append(df)                      
-  out = pd.concat(out)
-  out.sort_index(inplace = True)
-  if at == "coords":
-    data = mesh.nodes.loc[out.values].values
-    out = pd.DataFrame(index = out.index, data = data, columns = ["x", "y", "z"])
+  for etype, group in elements.groupby([("type", "argiope", "")]):
+    try:
+      output_maps = getattr(ELEMENTS[etype], into)
+      for om in range(len(output_maps)):
+        oshape = len(output_maps[om])
+        conn = group.conn
+        columns = pd.MultiIndex.from_product([(om,), np.arange(oshape)], 
+                                              names = [into, "vertex"])
+        data = (conn.values[:, output_maps[om]].reshape(len(conn), oshape))
+        df = pd.DataFrame(data = data, 
+                          columns = columns,
+                          index = conn.index).stack((0,1))
+        out.append(df)
+    except:
+      print("Can not extract '{0}' from '{1}'".format(into, etype))                           
+  if len(out) != 0:
+    out = pd.concat(out)
+    out.sort_index(inplace = True)
+    if at == "coords":
+      data = mesh.nodes.coords.loc[out.values].values
+      print(data)
+
+      out = pd.DataFrame(index = out.index, data = data, 
+                         columns = ["x", "y", "z"])
    
 """
 

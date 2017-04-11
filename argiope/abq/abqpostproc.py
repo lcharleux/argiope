@@ -1,9 +1,7 @@
 from abaqus import *
 from abaqusConstants import *
-
-#import visualization, xyPlot
 import displayGroupOdbToolset as dgo
-#import __main__
+
 
 def get_steps(odb):
   """
@@ -31,7 +29,7 @@ def write_xy_report(odb, path, tags, columns, steps):
   session.writeXYReport(fileName=path, appendMode=OFF, xyData=xyData)
   
   
-def write_field_report(odb, path, variable, instance, output_position, 
+def write_field_report(odb, path, label, argiope_class, variable, instance, output_position, 
                        step = -1, frame = -1, sortItem='Node Label'):
   """
   Writes a field report and rewrites it in a cleaner format.
@@ -74,6 +72,8 @@ def write_field_report(odb, path, variable, instance, output_position,
   header += ",".join([v[1] for v in variable[0][2]]) + "\n"
   # METADATA
   metadata = (
+          ("label", label),
+          ("argiope_class", argiope_class) ,
           ("odb", odb.path), 
           ("instance", instance),
           ("position", output_position),
