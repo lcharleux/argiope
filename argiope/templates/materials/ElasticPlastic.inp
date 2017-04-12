@@ -4,3 +4,5 @@
 *MATERIAL, NAME = $label
 *ELASTIC
   $young_modulus, $poisson_ratio
+*PLASTIC
+$plastic_table

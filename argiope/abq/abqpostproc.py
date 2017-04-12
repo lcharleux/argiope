@@ -56,16 +56,18 @@ def write_field_report(odb, path, label, argiope_class, variable, instance, outp
           frame          = frame, 
           outputPosition = output_position, 
           variable       = variable)
-  lines = open(path).readlines()
-  counter = 0
-  for i in xrange(len(lines)):
-    if lines[i].startswith("--"): 
-      counter += 1
-    if counter == 2:
-      break  
-  # DATA
-  data = lines[i+1:]
-  data = [line.strip() for line in data]
+  lines = [line.strip() for line in open(path).readlines()]
+  isdata = -1
+  data = []
+  for line in lines:
+   if isdata == 1:
+     if len(line) == 0: 
+       isdata -= 1
+     else:
+       data.append(line)   
+   elif isdata < 1:
+     if line.startswith("--"):
+       isdata += 1
   data = "\n".join([",".join(line.split()) for line in data if len(line) != 0])
   # HEADER
   header = str(output_position).lower() + "," 

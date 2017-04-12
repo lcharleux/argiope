@@ -30,6 +30,7 @@ def read_field_report(path, data_flag = "*DATA", meta_data_flag = "*METADATA"):
   mdata = io.StringIO( "\n".join(text[mdpos:dpos].split("\n")[1:]))
   data = io.StringIO( "\n".join(text[dpos:].split("\n")[1:]))
   data = pd.read_csv(data, index_col = 0)
+  data = data.groupby(data.index).mean()
   mdata = pd.read_csv(mdata, sep = "=", header = None, index_col = 0)[1]
   mdata = mdata.to_dict()
   out = {}

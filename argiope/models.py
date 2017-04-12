@@ -16,15 +16,15 @@ class Model(argiope.utils.Container):
   """
   def __init__(self, 
                label, 
-               meshes, 
+               parts, 
                steps, 
                materials, 
                solver = "abaqus", 
                solver_path = "",
                workdir = "./workdir",
-               verbose = True):
-    self.label        = label
-    self.meshes      = meshes
+               verbose = False):
+    self.label       = label
+    self.parts       = parts
     self.steps       = steps
     self.materials   = materials
     self.solver      = solver
