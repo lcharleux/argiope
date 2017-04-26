@@ -72,10 +72,12 @@ class Model(argiope.utils.Container):
       print('<Post-Processing"{0}" using {1}>'.format(self.label, 
                                                self.solver))  
     if self.solver == "abaqus":
+      command = '{0} viewer noGUI={1}_abqpp.py'.format(self.solver_path, self.label)
+      print(command)
       process = subprocess.Popen( 
-                [self.solver_path,  'viewer', 'noGUI={0}_abqpp.py'.format(
-                                                                   self.label)], 
+                command, 
                 cwd = self.workdir,
+                shell=True,
                 stdout = subprocess.PIPE )
       trash = process.communicate()
     t1 = time.time()
