@@ -80,6 +80,8 @@ class Model(argiope.utils.Container):
                 shell=True,
                 stdout = subprocess.PIPE )
       trash = process.communicate()
+    if self.verbose:
+      print(trash) 
     t1 = time.time()
     if self.verbose: 
       print('<Post-Processed {0}: duration {1:.2f}s>'.format(self.label, 
