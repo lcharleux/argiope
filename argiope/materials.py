@@ -130,4 +130,30 @@ class Hollomon(_PowerLawHardening):
                           "plastic_strain": plastic_strain})
    
                                                 
-                       
+class PowerLin(_PowerLawHardening):
+   """
+   A Power Linear material :
+   S = Sy  + K (Ep)**n 
+   """
+   def __init__(self, hardening_exponent = 0.3,  
+                      yield_stress = 150.,
+                      consistency = 200.,
+                      **kwargs):
+     self.hardening_exponent = hardening_exponent
+     self.yield_stress = yield_stress
+     self.consistency = consistency
+     super().__init__(**kwargs)
+                          
+   def get_plastic_table(self):
+     """
+     Calculates the plastic data
+     """
+     K = self.consistency
+     sy = self.yield_stress
+     n = self.hardening_exponent
+     eps_max = self.max_strain
+     Np = self.strain_data_points
+     plastic_strain = np.linspace(0., eps_max, Np)
+     stress = sy + K * plastic_strain**n 
+     return pd.DataFrame({"stress": stress, 
+                          "plastic_strain": plastic_strain})                       
