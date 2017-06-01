@@ -970,18 +970,21 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
 
   # SURFACES 
   surf_output = []
-  sk = mesh.elements.surfaces.keys()
-  for sindex in  np.unique(sk.labels[0]):
-    slabel = sk.levels[0][sindex]
-    surface = mesh.elements.surfaces[slabel]
-    if surface.values.sum() != 0:
-      mesh.surface_to_element_sets(slabel)
-      surf_output.append( "*SURFACE, TYPE=ELEMENT, NAME={0}".format(slabel))
-      for findex in surface.keys():
-        if surface[findex].sum() != 0:
-          surf_output.append("  _SURF_{0}_FACE{1}, S{1}".format(slabel, 
-                                                                findex[1:])) 
-
+  if "surfaces" in mesh.elements.keys():
+    sk = mesh.elements.surfaces.keys()
+    for sindex in  np.unique(sk.labels[0]):
+      slabel = sk.levels[0][sindex]
+      surface = mesh.elements.surfaces[slabel]
+      if surface.values.sum() != 0:
+        mesh.surface_to_element_sets(slabel)
+        surf_output.append( "*SURFACE, TYPE=ELEMENT, NAME={0}".format(slabel))
+        for findex in surface.keys():
+          if surface[findex].sum() != 0:
+            surf_output.append("  _SURF_{0}_FACE{1}, S{1}".format(slabel, 
+                                                                  findex[1:])) 
+  else:
+    surf_output.append("**")
+  
   # ELEMENTS
   elements_output = ""
   for etype, group in mesh.elements.groupby((("type", "solver", ""),)):
