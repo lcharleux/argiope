@@ -26,6 +26,10 @@ class Element:
     """
     return
 
+class Element0D(Element):
+  space = 0
+  pass
+
 class Element1D(Element):
   space = 1
   pass
@@ -61,6 +65,7 @@ class Element3D(Element):
   
    
 ELEMENTS = {
+    "point1": Element0D(nvert = 1),
     "line2": Element1D(
         nvert =  2),
     "tri3":  Element2D(
@@ -150,89 +155,82 @@ class Mesh(argiope.utils.Container):
   """
   A single class to handle meshes.
   """
-  def __init__(self, nlabels = None, 
-                     coords = None, 
-                     nsets = None, 
-                     elabels = None, 
-                     etypes = "", 
-                     stypes = "", 
-                     conn = None, 
-                     esets = None, 
-                     surfaces = None, 
-                     fields = None,
-                     materials = ""):
-    self.set_nodes(labels = nlabels, 
-                   coords = coords, 
-                   sets = nsets)
-    self.set_elements(labels = elabels, 
-                      types = etypes, 
-                      stypes = stypes, 
-                      conn = conn, 
-                      sets = esets, 
-                      surfaces = surfaces,
-                      materials = materials)
-    self.fields = []
-    if fields != None:
-      self.fields += fields
+  def __init__(self,**kwargs):
+    self.set_nodes(**kwargs)
+    self.set_elements(**kwargs)
+    self.set_fields(**kwargs)
     
   
   def __repr__(self):
+    Ne, Nn = 0, 0
+    if self.elements is not None : Ne = self.elements.index.size
+    if self.nodes is not None: Nn = self.nodes.index.size
     return "<Mesh, {0} nodes, {1} elements, {2} fields>".format(
-           self.nodes.index.size,
-           self.elements.index.size,
-           len(self.fields))
+           Nn, Ne, len(self.fields))
   
-  def set_nodes(self, labels, coords, sets):
+  def set_nodes(self, nlabels = None, coords = None, nsets = {}, **kwargs):
     """
     Sets the node data.
     """ 
-    columns = pd.MultiIndex.from_tuples((("coords", "x"), 
-                                         ("coords", "y"), 
-                                         ("coords", "z")))
-    self.nodes = pd.DataFrame(data = coords, 
-                              columns = columns,
-                              index = labels)
-    self.nodes.index.name = "node"
-    if sets != None:
-      for k, v in sets.items(): self.nodes["sets", k] = v
+    if nlabels is None:
+      self.nodes = None 
+    else:
+      columns = pd.MultiIndex.from_tuples((("coords", "x"), 
+                                           ("coords", "y"), 
+                                           ("coords", "z")))
+      self.nodes = pd.DataFrame(data = coords, 
+                                columns = columns,
+                                index = nlabels)
+      self.nodes.index.name = "node"
+      for k, v in nsets.items(): self.nodes["sets", k] = v
         
-  def set_elements(self, labels= None, 
-                         types = "", 
+  def set_elements(self, elabels = None, 
+                         types = None, 
                          stypes = "", 
                          conn = None, 
-                         sets = None, 
-                         surfaces = None, 
-                         materials = ""):
+                         esets = {}, 
+                         surfaces = {}, 
+                         materials = "",
+                         **kwargs):
     """
     Sets the element data
     """
     # COLUMNS BUILDING
-    columns = pd.MultiIndex.from_tuples([("type", "argiope", "")])
-    self.elements = pd.DataFrame(data = types, 
-                                 columns = columns,
-                                 index = labels)
-    self.elements.index.name = "element"
-    self.elements.loc[:, ("type", "solver", "")] = stypes
-    # Connectivity 
-    c = pd.DataFrame(conn, index = labels)
-    c.fillna(0, inplace = True)
-    c[:] = c.values.astype(np.int32)
-    c.columns = pd.MultiIndex.from_product([["conn"], 
-                                            ["n{0}".format(n) for 
-                                             n in np.arange(c.shape[1])], 
-                                            [""]])
-    
-    self.elements = self.elements.join(c)
-    # Sets
-    if sets != None:
-      for k, v in sets.items(): self.elements[("sets", k, "")] = v
-    if surfaces != None:
+    if elabels is None:
+       self.elements = None
+    else:   
+      columns = pd.MultiIndex.from_tuples([("type", "argiope", "")])
+      self.elements = pd.DataFrame(data = types,
+                                   columns = columns,
+                                   index = elabels)
+      self.elements.index.name = "element"
+      self.elements.loc[:, ("type", "solver", "")] = stypes
+      # Connectivity 
+      c = pd.DataFrame(conn, index = elabels)
+      c.fillna(0, inplace = True)
+      c[:] = c.values.astype(np.int32)
+      c.columns = pd.MultiIndex.from_product([["conn"], 
+                                              ["n{0}".format(n) for 
+                                               n in np.arange(c.shape[1])], 
+                                              [""]])
+      self.elements = self.elements.join(c)
+      # Sets
+      for k, v in esets.items(): self.elements[("sets", k, "")] = v
       for k, v in surfaces.items():
         for fk, vv in v.items():
-           self.elements[("surfaces", k, "s{0}".format(fk))] = vv
-    # Materials
-    self.elements[("materials", "", "") ] = materials
+          self.elements[("surfaces", k, "s{0}".format(fk))] = vv
+      # Materials
+      self.elements[("materials", "", "") ] = materials
   
+  def set_fields(self, fields = None, **kwargs):
+    """
+    Sets the fields.
+    """
+    self.fields = []
+    if fields != None:
+      for field in fields: 
+        self.fields.append(field)
+      
   def check_elements(self):
     """
     Checks element definitions.
@@ -612,13 +610,15 @@ def read_h5(hdfstore, group = ""):
   
 
 def read_msh(path):
-  elementMap = { 1:"line2",
+  elementMap = { 15:"point1",
+                 1:"line2",
                  2:"tri3",
                  3:"quad4",
                  4:"tetra4",
                  5:"hexa8",
                  6:"prism6",
                  7:"pyra4",
+                 
                }
   lines = np.array(open(path, "r").readlines())
   locs = {}
@@ -638,6 +638,7 @@ def read_msh(path):
                    names = ["labels", "x", "y", "z"])
   
   elements = {"labels":[], "etype":[], "conn": [], "tags":[], "sets":{}}
+  
   for line in lines[locs["elements"][0]+2:locs["elements"][1]]:
     d = np.array([int(w) for w in line.split()])
     elements["labels"].append( d[0] )
@@ -658,11 +659,12 @@ def read_msh(path):
     elements["sets"][tag] = elements["labels"][values]     
   """
   elements["sets"] = sets
+  print(elements["sets"])
   return Mesh(nlabels = nodes["labels"], 
               coords = np.array(nodes[["x", "y", "z"]]),
               elabels = elements["labels"],
               conn = elements["conn"],
-              etypes = elements["etype"],
+              types = elements["etype"],
               esets = elements["sets"])
 
 def read_inp(path):
@@ -967,7 +969,13 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
   # NODES
   nodes_output = (mesh.nodes.coords.to_csv(header = False).split())
   nodes_output = ("\n".join(["  " + s.replace(",", ", ") for s in nodes_output]))
-
+  
+  # NODE SETS
+  if "sets" in mesh.nodes.columns.levels[0]: 
+    nsets = set_to_inp(mesh.elements.sets.swaplevel(1,0, axis = 1)[""], "NSET")
+  else:
+    nsets = "**"
+  
   # SURFACES 
   surf_output = []
   if "surfaces" in mesh.elements.keys():
@@ -1008,19 +1016,24 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
        material)
 
   # ELEMENTS SETS
+  if "sets" in mesh.elements.columns.levels[0]: 
+    esets = set_to_inp(mesh.elements.sets.swaplevel(1,0, axis = 1)[""],"ELSET")
+  else:
+    esets = "**"
+  """
   ek = mesh.elements.sets.keys()
   for esindex in  np.unique(ek.labels[0]):
     eslabel = ek.levels[0][esindex]
     eset = mesh.elements.sets[slabel]
+  """
      
   # PATTERN
   pattern = Template(open(MODPATH + "/templates/mesh/inp.inp").read())
   pattern = pattern.substitute(
     NODES     = nodes_output,
-    NODE_SETS = set_to_inp(mesh.nodes.sets, "NSET"),
+    NODE_SETS = nsets,
     ELEMENTS  = elements_output,
-    ELEMENT_SETS = set_to_inp(mesh.elements.sets
-                   .swaplevel(1,0, axis = 1)[""], "ELSET"),
+    ELEMENT_SETS = esets,
     ELEMENT_SURFACES = "\n".join(surf_output),
     SECTIONS = section_output.strip())
   pattern = pattern.strip()

@@ -114,6 +114,7 @@ class Part(argiope.utils.Container):
     """
     Makes the mesh using gmsh.
     """
+    """
     p = subprocess.Popen("{0} -{1} {2} {3}".format(
         self.gmsh_path, 
         self.gmsh_space,
@@ -121,6 +122,12 @@ class Part(argiope.utils.Container):
         self.file_name + ".geo"), 
         cwd = self.workdir, shell=True, stdout = subprocess.PIPE)  
     trash = p.communicate()
+    """
+    argiope.utils.run_gmsh(gmsh_path = self.gmsh_path,
+                           gmsh_space = self.gmsh_space,
+                           gmsh_options = self.gmsh_options,
+                           name = self.file_name + ".geo",
+                           workdir = self.workdir)  
     self.mesh = argiope.mesh.read_msh(self.workdir + self.file_name + ".msh")
     
   def make_mesh(self):

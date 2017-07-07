@@ -1,4 +1,4 @@
-import pickle, gzip, copy
+import pickle, gzip, copy, subprocess
 
 def load(path):
   """
@@ -25,4 +25,12 @@ class Container:
     return copy.deepcopy(self)
   
 
-    
+ 
+def run_gmsh(gmsh_path = "gmsh", gmsh_space = 3, gmsh_options = "", 
+             name = "dummy.geo", workdir = "./"):
+  p = subprocess.Popen("{0} -{1} {2} {3}".format(gmsh_path, gmsh_space, 
+                                                 gmsh_options, name), 
+                       cwd = workdir, 
+                       shell=True, 
+                       stdout = subprocess.PIPE)  
+  trash = p.communicate()    
