@@ -1,10 +1,10 @@
 from setuptools import setup
 
 setup(name='argiope',
-      version='0.0',
+      version='0.1',
       description="A framework for simpler finite element processing",
       long_description="",
-      author='Ludovic Charleux',
+      author='Ludovic Charleux, Emile Roux',
       author_email='ludovic.charleux@univ-smb.fr',
       license='GPL v3',
       packages=['argiope'],
