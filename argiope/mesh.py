@@ -11,6 +11,9 @@ MODPATH = os.path.dirname(inspect.getfile(argiope))
 # CONSTANTS AND DEFINITIONS
 ################################################################################
 class Element:
+  """
+  The Element meta class.
+  """
   def __init__(self, nvert, edges = None, simplices = None ):
     self.nvert = nvert
     self.edges = edges
@@ -153,9 +156,18 @@ ELEMENTS = {
   
 class Mesh(argiope.utils.Container):
   """
-  A single class to handle meshes.
+  A single class to handle meshes. 
   """
   def __init__(self,**kwargs):
+    """
+    The constructor only a redirection to the following methods:
+    
+    * set_nodes
+    * set_elements
+    * set_fields
+    
+    .. literalinclude:: examples/mesh/Mesh.py
+    """
     self.set_nodes(**kwargs)
     self.set_elements(**kwargs)
     self.set_fields(**kwargs)
@@ -171,6 +183,8 @@ class Mesh(argiope.utils.Container):
   def set_nodes(self, nlabels = None, coords = None, nsets = {}, **kwargs):
     """
     Sets the node data.
+    
+    .. literalinclude:: examples/mesh/Mesh-set_nodes.py
     """ 
     if nlabels is None:
       self.nodes = None 
@@ -193,7 +207,9 @@ class Mesh(argiope.utils.Container):
                          materials = "",
                          **kwargs):
     """
-    Sets the element data
+    Sets the element data.
+    
+    . literalinclude:: examples/mesh/Mesh-set_elements.py
     """
     # COLUMNS BUILDING
     if elabels is None:
@@ -221,7 +237,8 @@ class Mesh(argiope.utils.Container):
           self.elements[("surfaces", k, "s{0}".format(fk))] = vv
       # Materials
       self.elements[("materials", "", "") ] = materials
-  
+      self.elements.sort_index(axis = 1, inplace = True)
+       
   def set_fields(self, fields = None, **kwargs):
     """
     Sets the fields.
@@ -342,13 +359,13 @@ class Mesh(argiope.utils.Container):
       out.append(pd.concat([volumes_df, centroids_df], axis = 1))             
     out = pd.concat(out)  
     if sort_index: out.sort_index(inplace = True)
-    return out
+    return out.sort_index(axis= 1)
          
   def angles(self):
     """
     Returns the internal angles of all elements and the associated statistics 
     """
-    elements = self.elements
+    elements = self.elements.sort_index(axis = 1)
     etypes = elements[("type", "argiope")].unique()
     out = []
     for etype in etypes:
@@ -373,24 +390,27 @@ class Mesh(argiope.utils.Container):
       angles_df = pd.DataFrame(index = index, 
                                data = angles, 
                                columns = pd.MultiIndex.from_product(
-                                        [["angles"], range(angles_info.shape[0])]))
+      [["angles"], ["a{0}".format(s) for s in range(angles_info.shape[0])]]))
       deviation_df = pd.DataFrame(index = index, 
                                data = deviation, 
                                columns = pd.MultiIndex.from_product(
-                                        [["deviation"], range(angles_info.shape[0])]))
-      df = pd.concat([angles_df, deviation_df], axis = 1)
+      [["deviation"], ["d{0}".format(s) for s in range(angles_info.shape[0])]]))
+      
+      df = pd.concat([angles_df, deviation_df], axis = 1).sort_index(axis = 1)
       df["stats", "max_angle"] = df.angles.max(axis = 1)
       df["stats", "min_angle"] = df.angles.min(axis = 1)
       df["stats", "max_angular_deviation"] = df.deviation.max(axis = 1)
       df["stats", "min_angular_deviation"] = df.deviation.min(axis = 1)
-      df["stats", "max_abs_angular_deviation"] = abs(df.deviation).max(axis = 1)      
+      df["stats", "max_abs_angular_deviation"] = abs(df.deviation).max(axis = 1)    
+      df = df.sort_index(axis = 1)  
       out.append(df)
-    out = pd.concat(out)  
+      
+    out = pd.concat(out).sort_index(axis = 1)
     return out
   
   def edges(self):
     """
-    Retunrs the aspect ratio of all elements.
+    Returns the aspect ratio of all elements.
     """
     edges = self.split("edges", at = "coords").unstack()
     edges["lx"] = edges.x[1]-edges.x[0]
@@ -399,11 +419,11 @@ class Mesh(argiope.utils.Container):
     edges["l"] = np.linalg.norm(edges[["lx", "ly", "lz"]], axis = 1)
     edges = (edges.l).unstack()
     edges.columns = pd.MultiIndex.from_product([["length"], 
-                    np.arange(edges.shape[1])])
+                    ["e{0}".format(s) for s in np.arange(edges.shape[1])]])
     edges[("stats", "lmax")] = edges.length.max(axis = 1)
     edges[("stats", "lmin")] = edges.length.min(axis = 1)
     edges[("stats", "aspect_ratio")] = edges.stats.lmax / edges.stats.lmin
-    return edges
+    return edges.sort_index(axis = 1)
   
   def stats(self):
     """
@@ -412,7 +432,8 @@ class Mesh(argiope.utils.Container):
     cv = self.centroids_and_volumes()
     angles  = self.angles()
     edges = self.edges()
-    return pd.concat([cv , angles[["stats"]], edges[["stats"]] ], axis = 1)
+    return pd.concat([cv , angles[["stats"]], edges[["stats"]] ], 
+                     axis = 1).sort_index(axis = 1)
         
   def element_set_to_node_set(self, tag):
     """
@@ -510,6 +531,11 @@ class Mesh(argiope.utils.Container):
 class MetaField(argiope.utils.Container):
   """
   A field mother class.
+  
+  :param label: field label
+  :type label: str
+  :param position: physical position
+  :type position: in ["node", "element"]
   """ 
   _positions = ["node", "element"]
   
@@ -555,20 +581,35 @@ class Field(MetaField):
   pass     
 
 class Tensor6Field(MetaField):
+  """
+  Second order symmetric tensor field.
+  """
   _columns = ["v11", "v22", "v33", "v12", "v13", "v23"]
 
 
 class Tensor4Field(MetaField):
+  """
+  Second order symmetric 2D tensor field.
+  """
   _columns = ["v11", "v22", "v33", "v12"]
 
 
 class Tensor3Field(MetaField):
+  """
+  Second order diagonal tensor field.
+  """
   _columns = ["v11", "v22", "v12"]
    
 class Vector3Field(MetaField):
+  """
+  3D vector field.
+  """
   _columns = ["v1", "v2", "v3"]
 
 class Vector2Field(MetaField):
+  """
+  2D vector field.
+  """
   _columns = ["v1", "v2"]  
   
 class ScalarField(MetaField):
@@ -582,6 +623,7 @@ class ScalarField(MetaField):
 ################################################################################
 def read_h5(hdfstore, group = ""):
   """
+  DEPRECATED
   Reads a mesh saved in the HDF5 format.
   """
   m = Mesh()
@@ -610,6 +652,13 @@ def read_h5(hdfstore, group = ""):
   
 
 def read_msh(path):
+  """
+  Reads a GMSH MSH file and returns a :class:`Mesh` instance. 
+  
+  :arg path: path to MSH file.
+  :type path: str
+  
+  """
   elementMap = { 15:"point1",
                  1:"line2",
                  2:"tri3",
@@ -659,7 +708,6 @@ def read_msh(path):
     elements["sets"][tag] = elements["labels"][values]     
   """
   elements["sets"] = sets
-  print(elements["sets"])
   return Mesh(nlabels = nodes["labels"], 
               coords = np.array(nodes[["x", "y", "z"]]),
               elabels = elements["labels"],
