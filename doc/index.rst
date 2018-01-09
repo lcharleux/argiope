@@ -2,6 +2,16 @@
 
 Argiope: pythonic FEM data management toolbox
 +++++++++++++++++++++++++++++++++++++++++++++++
+
+Install
+---------
+
+.. code-block:: console
+
+   pip install argiope
+
+
+
   
 Tutorials:
 ----------------
