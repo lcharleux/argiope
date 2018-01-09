@@ -216,7 +216,7 @@ html_show_copyright = False
 #html_file_suffix = None
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = u'Outils numériques'
+htmlhelp_basename = u'Argiope'
 
 html_copy_source = True
 html_show_sourcelink = True

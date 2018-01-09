@@ -4,8 +4,7 @@ Argiope: pythonic FEM data management toolbox
 +++++++++++++++++++++++++++++++++++++++++++++++
   
 Tutorials:
-_____________
-
+----------------
 .. toctree::
    :maxdepth: 2
    
@@ -13,13 +12,15 @@ _____________
    
    
 Package documentation:
-___________________________
+----------------------------------
+
 
 .. toctree::
    :maxdepth: 2
    
    mesh
    materials
+   models
    utils
   
 

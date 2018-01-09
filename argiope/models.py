@@ -90,6 +90,7 @@ class Model(argiope.utils.Container):
 
 ################################################################################
 # PART DEFINITION
+################################################################################
 class Part(argiope.utils.Container):
 
   def __init__(self, gmsh_path = "gmsh",
