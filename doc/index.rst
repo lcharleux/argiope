@@ -1,9 +1,10 @@
 .. index.rst
 
-Argiope: pythonic FEM data management
-+++++++++++++++++++++++++++++++++++++++
+Argiope: pythonic FEM data management toolbox
++++++++++++++++++++++++++++++++++++++++++++++++
   
-Notebooks:
+Tutorials:
+_____________
 
 .. toctree::
    :maxdepth: 2
@@ -12,11 +13,13 @@ Notebooks:
    
    
 Package documentation:
+___________________________
 
 .. toctree::
    :maxdepth: 2
    
    mesh
+   utils
   
 
 
