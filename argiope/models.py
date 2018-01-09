@@ -11,8 +11,6 @@ MODPATH = os.path.dirname(inspect.getfile(argiope))
 class Model(argiope.utils.Container):
   """
   Model meta class. 
-  
-  Note: should move Argiope as soon as it is working properly.
   """
   def __init__(self, 
                label, 
@@ -113,15 +111,6 @@ class Part(argiope.utils.Container):
   def run_gmsh(self):
     """
     Makes the mesh using gmsh.
-    """
-    """
-    p = subprocess.Popen("{0} -{1} {2} {3}".format(
-        self.gmsh_path, 
-        self.gmsh_space,
-        self.gmsh_options,
-        self.file_name + ".geo"), 
-        cwd = self.workdir, shell=True, stdout = subprocess.PIPE)  
-    trash = p.communicate()
     """
     argiope.utils.run_gmsh(gmsh_path = self.gmsh_path,
                            gmsh_space = self.gmsh_space,
