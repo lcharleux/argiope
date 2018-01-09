@@ -19,6 +19,7 @@ ___________________________
    :maxdepth: 2
    
    mesh
+   materials
    utils
   
 
