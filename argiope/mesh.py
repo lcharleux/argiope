@@ -1020,7 +1020,7 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
   
   # NODE SETS
   if "sets" in mesh.nodes.columns.levels[0]: 
-    nsets = set_to_inp(mesh.elements.sets.swaplevel(1,0, axis = 1)[""], "NSET")
+    nsets = set_to_inp(mesh.nodes.sets, "NSET")
   else:
     nsets = "**"
   
