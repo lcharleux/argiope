@@ -13,6 +13,8 @@ setup(name='argiope',
           "numpy",
           "scipy",
           "matplotlib",
-          "pandas"
+          "pandas",
+          "jupyter",
+          "nbconvert"
           ],
       )

@@ -1,5 +1,6 @@
 import sys, os
 from string import Template
+import subprocess
 sys.path.append(os.path.abspath('sphinxext'))
 
 ################################################################################
@@ -34,8 +35,18 @@ for dirpath, dirnames, filenames in os.walk(nbdir):
                     "./").strip("/").split("/"))) + "/"
     nb_rst_path = ( rst_path.strip("/").strip("./")) +"/"+ nb +".rst"
     node_index += "   " + nb + "\n"
+    
     os.system("jupyter-nbconvert {0}/{1}.ipynb --to rst --output {2}".format(
           dirpath, nb, rst_back_path+nb_rst_path))
+    
+    """
+    p = subprocess.Popen("nbconvert {0}/{1}.ipynb --to rst --output {2}".format(
+                     dirpath, nb, rst_back_path+nb_rst_path)
+                       cwd = "./", 
+                       shell=True, 
+                       stdout = subprocess.PIPE)  
+    trash = p.communicate()
+    """
     rst = ""
     rst += ".. Note::\n\n  This notebook can be downloaded here: "
     rst += ":download:`{2}.ipynb <{0}{1}/{2}.ipynb>` \n\n".format(
