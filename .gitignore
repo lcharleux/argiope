@@ -20,4 +20,5 @@
 *.h5
 *.rpt
 *__pycache__*
-
+doc/_build/*
+doc/notebooks_rst/*

@@ -209,7 +209,7 @@ class Mesh(argiope.utils.Container):
     """
     Sets the element data.
     
-    . literalinclude:: examples/mesh/Mesh-set_elements.py
+    .. literalinclude:: examples/mesh/Mesh-set_elements.py
     """
     # COLUMNS BUILDING
     if elabels is None:

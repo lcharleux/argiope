@@ -3,15 +3,20 @@
 Argiope: pythonic FEM data management
 +++++++++++++++++++++++++++++++++++++++
   
-Contents:
+Notebooks:
 
 .. toctree::
    :maxdepth: 2
    
-   notebooks-rst/notebooks_index
+   notebooks_rst/notebooks
+   
+   
+Package documentation:
+
+.. toctree::
+   :maxdepth: 2
+   
    mesh
-   
-   
   
 
 

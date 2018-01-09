@@ -1,26 +1,50 @@
 import sys, os
+from string import Template
 sys.path.append(os.path.abspath('sphinxext'))
 
 ################################################################################
 # NOTEBOOKS MANAGEMENT
 ################################################################################
-nbdir = "notebooks/"
-rstdir = "notebooks-rst/"
+# SETUP
+nbdir  = "./notebooks/" # The notebooks that contains the notebooks.
+rstdir = "./notebooks_rst/" # The directory where sphinx can store rst files.
+template = Template(open("notebooks_index.template").read())
+exclude_prefixes = ('_', '.')  # exclusion prefixes
+file_suffixes = (".ipynb",)
+title_levels = "+=~-_"
 
-nbs = [p[:-6] for p in os.listdir(nbdir) if p.endswith(".ipynb")]
-for nb in nbs:
-  os.system("jupyter-nbconvert {0}{1}.ipynb --to rst --output ../{2}{1}.rst".format(nbdir, nb, rstdir))
-  rst  = ".. Note::\n\n  This notebook can be downloaded here: "
-  rst += ":download:`{0}.ipynb <../{1}{0}.ipynb>` \n\n".format(nb, nbdir)
-  rst += ".. contents::\n   :depth: 2\n".format(nb, nbdir)
-  rst += open(rstdir+nb+'.rst').read()
-  open(rstdir+nb+'.rst', "w").write(rst)
-
-nbindex = open("notebooks_index.template").read()
-for nb in nbs: 
-  nbindex += "   " + nb + "\n"
-
-open(rstdir + "notebooks_index.rst", "w").write(nbindex)
+# DATA PROCESSING (whole section needs serious cleaning)
+for dirpath, dirnames, filenames in os.walk(nbdir):
+  dirnames[:] = [dirname
+                 for dirname in dirnames
+                 if not dirname.startswith(exclude_prefixes)]
+  filenames = [f for f in filenames if f.endswith(file_suffixes)]
+  path_depth = len(dirpath.strip("./").strip("/").split("/")) 
+  rst_path = dirpath.replace(nbdir, rstdir) 
+  if rst_path.endswith("/") == False: rst_path += "/"
+  if os.path.isdir(rst_path) == False: os.mkdir(rst_path)
+  node = dirpath.strip("/").split("/")[-1]
+  node_index = template.substitute(title = node.replace("_", " ").title(), 
+                                   underline = 80*title_levels[path_depth])
+  for d in dirnames: 
+    node_index += "   " + d + "/" + d + "\n"
+  for f in filenames:
+    nb = f[:-6]
+    rst_back_path = "/".join([".."]*len(dirpath.strip(
+                    "./").strip("/").split("/"))) + "/"
+    nb_rst_path = ( rst_path.strip("/").strip("./")) +"/"+ nb +".rst"
+    node_index += "   " + nb + "\n"
+    os.system("jupyter-nbconvert {0}/{1}.ipynb --to rst --output {2}".format(
+          dirpath, nb, rst_back_path+nb_rst_path))
+    rst = ""
+    rst += ".. Note::\n\n  This notebook can be downloaded here: "
+    rst += ":download:`{2}.ipynb <{0}{1}/{2}.ipynb>` \n\n".format(
+             rst_back_path, dirpath.strip("./"), nb)
+    #rst += ".. contents::\n   :depth: 2\n"
+    rst += open(nb_rst_path).read()
+    open(nb_rst_path, "w").write(rst)
+  open(rst_path + node + ".rst", "w").write(node_index)              
+                       
 ################################################################################
 
 
