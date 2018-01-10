@@ -1,3 +1,5 @@
+__version__ = "0.1"
+
 try: 
   from . import utils, mesh, materials, models, abq 
 except:

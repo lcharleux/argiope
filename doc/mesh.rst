@@ -7,8 +7,6 @@ Mesh class
 ~~~~~~~~~~
 
 .. autoclass:: argiope.mesh.Mesh
-.. automethod:: argiope.mesh.Mesh.__init__
-
   
 Set
 ____________________

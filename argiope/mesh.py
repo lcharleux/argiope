@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-import os, subprocess, inspect, io, copy, collections
+import os, subprocess, inspect, io, copy, collections, warnings
 import argiope
 from string import Template
 
@@ -156,18 +156,19 @@ ELEMENTS = {
   
 class Mesh(argiope.utils.Container):
   """
-  A single class to handle meshes. 
+  A single class to handle meshes and associated data. The class constructor only a redirection to the following methods:
+    
+  * :func:`Mesh.set_nodes`
+  * :func:`Mesh.set_elements`
+  * :func:`Mesh.set_fields`
+    
+  A simple example is given below.
+    
+  .. literalinclude:: ../tests/mesh_example.py
+  
+  For more complex examples, follow the notebook tutorials.
   """
   def __init__(self,**kwargs):
-    """
-    The constructor only a redirection to the following methods:
-    
-    * set_nodes
-    * set_elements
-    * set_fields
-    
-    .. literalinclude:: examples/mesh/Mesh.py
-    """
     self.set_nodes(**kwargs)
     self.set_elements(**kwargs)
     self.set_fields(**kwargs)
@@ -180,23 +181,41 @@ class Mesh(argiope.utils.Container):
     return "<Mesh, {0} nodes, {1} elements, {2} fields>".format(
            Nn, Ne, len(self.fields))
   
-  def set_nodes(self, nlabels = None, coords = None, nsets = {}, **kwargs):
-    """
+  def set_nodes(self, nlabels = [], coords = [], nsets = {}, **kwargs):
+    r"""
     Sets the node data.
     
-    .. literalinclude:: examples/mesh/Mesh-set_nodes.py
+    :arg nlabels: node labels. Items be strictly positive and int typed 
+                  in 1D array-like with shape :math:`(N_n)`.
+    :type nlabels: 1D uint typed array-like
+    :arg coords: node coordinates. Must be float typed 2D array-like of shape 
+                 :math:`(N_n \times 3)`.  
+    :type coords: 2D float typed array-like            
+    :arg nsets: node sets. Contains boolean array-like of shape :math:`(N_n)`.
+    :type nsets: dict
     """ 
-    if nlabels is None:
-      self.nodes = None 
-    else:
-      columns = pd.MultiIndex.from_tuples((("coords", "x"), 
-                                           ("coords", "y"), 
-                                           ("coords", "z")))
-      self.nodes = pd.DataFrame(data = coords, 
-                                columns = columns,
-                                index = nlabels)
-      self.nodes.index.name = "node"
-      for k, v in nsets.items(): self.nodes["sets", k] = v
+    # DATA PREPROCESSING
+    nlabels = np.array(nlabels).astype(np.int64)
+    coords = np.array(coords).astype(np.float64)
+    if (nlabels < 0).sum() > 0: 
+      raise ValueError("Node labels must be strictly positive.")
+    if len(nlabels) != len(coords):
+      raise ValueError("'nlabels' and 'coords' must have the same length")
+    if coords.shape[1] != 3:
+      raise ValueError("coordinates must be 3 dimensional.")    
+    # ATTRIBUTES CREATION
+    columns = pd.MultiIndex.from_tuples((("coords", "x"), 
+                                         ("coords", "y"), 
+                                         ("coords", "z")))
+    self.nodes = pd.DataFrame(data = coords, 
+                              columns = columns,
+                              index = nlabels)
+    self.nodes.index.name = "node"
+    for k, v in nsets.items(): 
+      v = np.array(v)
+      if v.dtype != 'bool':
+        raise ValueError("Sets must be boolean array-likes.")   
+      self.nodes["sets", k] = v
         
   def set_elements(self, elabels = None, 
                          types = None, 
@@ -209,10 +228,31 @@ class Mesh(argiope.utils.Container):
     """
     Sets the element data.
     
-    .. literalinclude:: examples/mesh/Mesh-set_elements.py
+    :arg elabels: element labels. Items be strictly positive and int typed 
+                  in 1D array-like with shape :math:`(N_e)`.
+    :type elabels: 1D uint typed array-like
+    :arg types: element types chosen among argiope specific element types. 
+    :type types: str typed array-like 
+    :arg stypes: element types chosen in solver (depends on the chosen solver) specific element types. 
+    :type stypes: str typed array-like 
+    :arg conn: connectivity table. In order to deal with non rectangular tables, :math:`0` can be used to fill missing data. 
+    :type conn: uint typed array-like
+    :arg esets: element sets. Contains boolean array-like of shape :math:`(N_e)`.
+    :type esets: dict  
+    :arg surfaces: surfaces. Contains boolean array-like of shape :math:`(N_e, N_s )` with :math:`N_s` being the maximum number of faces on a single element. 
+    :type surfaces: dict   
+    :arg materials: material keys. Any number a of materials can be used.
+    :type materials: str typed array-like 
+     
+      
+      
+           
     """
     # COLUMNS BUILDING
     if elabels is None:
+       warnings.warn(
+       "Since no element labels where provided, no elements where created", 
+       Warning)
        self.elements = None
     else:   
       columns = pd.MultiIndex.from_tuples([("type", "argiope", "")])
@@ -339,7 +379,7 @@ class Mesh(argiope.utils.Container):
                   np.cross(edges[:,:,0], 
                            edges[:,:,1], 
                            axis = 2),
-                  axis = 2)
+                  axis = 2)/2.
       elif etype_info.space == 3:          
         simplices_volumes =  (np.cross(edges[:,:,0], 
                                        edges[:,:,1], axis = 2) 
@@ -614,6 +654,7 @@ class Vector2Field(MetaField):
   
 class ScalarField(MetaField):
   _columns = ["v"]  
+    
     
 ################################################################################
     

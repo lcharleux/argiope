@@ -22,3 +22,6 @@
 *__pycache__*
 doc/_build/*
 doc/notebooks_rst/*
+dist/*
+build/*
+argiope.egg-info/*
