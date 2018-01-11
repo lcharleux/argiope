@@ -45,9 +45,9 @@ class MyTest(unittest.TestCase):
     Tests if volume computations are correct.
     """     
     vout = mesh.centroids_and_volumes().volume.values
-    vin = np.array([1., .5])
-    self.assertEqual( 
-       ((vin -vout)**2).sum(), 0 ) 
+    vin = np.array([1., .5, 1., .5, 1./6.])
+    self.assertTrue( 
+       ((vin -vout)**2).sum() < 1.e10, 0 ) 
     
 if __name__ == '__main__':
     unittest.main()      

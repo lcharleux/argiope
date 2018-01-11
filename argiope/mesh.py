@@ -62,6 +62,11 @@ class Element3D(Element):
                            for i in range(len(self.faces))])
   angles = property(get_angles)  
   
+  def get_optimal_angles(self):
+    return  np.concatenate([ELEMENTS[e].optimal_angles 
+            for e in self.faces_types])
+  optimal_angles = property(get_optimal_angles)  
+  
   def get_surfaces(self):
     return self.faces
   surfaces = property(get_surfaces)
@@ -97,7 +102,7 @@ ELEMENTS = {
                                 "tri3",
                                 "tri3",
                                 "tri3"]),
-        simplices = np.array([[0, 1, 3, 4]])),
+        simplices = np.array([[0, 1, 2, 3]])),
     "pyra5": Element3D(
         nvert = 5,
         edges = np.array([[0, 1], [1, 2], [2, 3], [3, 0],
@@ -383,7 +388,7 @@ class Mesh(argiope.utils.Container):
       elif etype_info.space == 3:          
         simplices_volumes =  (np.cross(edges[:,:,0], 
                                        edges[:,:,1], axis = 2) 
-                             * edges[:,:, 2]).sum(axis = 2)
+                             * edges[:,:, 2]).sum(axis = 2) / 6.
       elements_volumes = simplices_volumes.sum(axis = 1)
       elements_centroids = ((simplices_volumes.reshape(*simplices_volumes.shape, 1) 
                           * simplices_centroids).sum(axis = 1) 
@@ -401,7 +406,7 @@ class Mesh(argiope.utils.Container):
     if sort_index: out.sort_index(inplace = True)
     return out.sort_index(axis= 1)
          
-  def angles(self):
+  def angles(self, zfill = 3):
     """
     Returns the internal angles of all elements and the associated statistics 
     """
@@ -430,11 +435,13 @@ class Mesh(argiope.utils.Container):
       angles_df = pd.DataFrame(index = index, 
                                data = angles, 
                                columns = pd.MultiIndex.from_product(
-      [["angles"], ["a{0}".format(s) for s in range(angles_info.shape[0])]]))
+      [["angles"], ["a" + "{0}".format(s).zfill(zfill) 
+              for s in range(angles_info.shape[0])]]))
       deviation_df = pd.DataFrame(index = index, 
                                data = deviation, 
                                columns = pd.MultiIndex.from_product(
-      [["deviation"], ["d{0}".format(s) for s in range(angles_info.shape[0])]]))
+      [["deviation"], ["d" + "{0}".format(s).zfill(zfill) 
+              for s in range(angles_info.shape[0])]]))
       
       df = pd.concat([angles_df, deviation_df], axis = 1).sort_index(axis = 1)
       df["stats", "max_angle"] = df.angles.max(axis = 1)
