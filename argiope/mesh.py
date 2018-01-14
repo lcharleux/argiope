@@ -169,7 +169,7 @@ class Mesh(argiope.utils.Container):
     
   A simple example is given below.
     
-  .. literalinclude:: ../tests/mesh_example.py
+  .. literalinclude:: examples/mesh/Mesh.py
   
   For more complex examples, follow the notebook tutorials.
   """
@@ -455,7 +455,7 @@ class Mesh(argiope.utils.Container):
     out = pd.concat(out).sort_index(axis = 1)
     return out
   
-  def edges(self):
+  def edges(self, zfill = 3):
     """
     Returns the aspect ratio of all elements.
     """
@@ -466,7 +466,8 @@ class Mesh(argiope.utils.Container):
     edges["l"] = np.linalg.norm(edges[["lx", "ly", "lz"]], axis = 1)
     edges = (edges.l).unstack()
     edges.columns = pd.MultiIndex.from_product([["length"], 
-                    ["e{0}".format(s) for s in np.arange(edges.shape[1])]])
+                    ["e" + "{0}".format(s).zfill(zfill) 
+                    for s in np.arange(edges.shape[1])]])
     edges[("stats", "lmax")] = edges.length.max(axis = 1)
     edges[("stats", "lmin")] = edges.length.min(axis = 1)
     edges[("stats", "aspect_ratio")] = edges.stats.lmax / edges.stats.lmin
