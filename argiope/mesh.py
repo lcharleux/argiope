@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib as mpl
-import os, subprocess, inspect, io, copy, collections, warnings
+import os, subprocess, inspect, io, copy, collections, warnings, numba
 import argiope
 from string import Template
 
@@ -1139,6 +1139,77 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
   else:
     open(path, "w").write(pattern)
   
+
+################################################################################
+# MESHERS
+################################################################################
+
+@numba.jit
+def _make_conn(shape):
+    """
+    Connectivity builder using Numba for speed boost.
+    """
+    shape = np.array(shape)
+    Ne = shape.prod()
+    if len(shape) == 2:
+        nx, ny = np.array(shape) +1 
+        conn = np.zeros((Ne, 4), dtype = np.int32)
+        counter = 0
+        pattern = np.array([0,1,1+nx,nx])
+        for j in range(shape[1]):
+            for i in range(shape[0]):
+                conn[counter] = pattern + 1 + i + j*nx
+                counter += 1
+        
+    if len(shape) == 3:
+        nx, ny, nz  = np.array(shape) +1 
+        conn = np.zeros((Ne, 8), dtype = np.int32)
+        counter = 0
+        pattern = np.array([0,1,1+nx,nx,nx*ny,1+nx*ny,1+(nx+1)*ny,(nx+1)*ny])
+        for k in range(shape[2]):
+            for j in range(shape[1]):
+                for i in range(shape[0]):
+                    conn[counter] = pattern + 1 + i + j*nx+ k*nx*ny
+                    counter += 1
+    return conn   
+
+def StructuredMesh(shape = (2,2,2), dim = (1.,1.,1.)):
+    """
+    Returns a structured mesh.
+    
+    :arg shape: 2 or 3 integers (eg: shape = (10, 10, 10)).
+    :type shape: tuple
+    :arg dim: 2 or 3 floats (eg: dim = (4., 2., 1.))
+    :type dim: tuple
+        
+    """
+    # PREPROCESSING
+    shape = np.array(shape)
+    dim   = np.array(dim) 
+    Ne = shape.prod()
+    Nn = (shape + 1).prod()
+    # LABELS
+    nindex = np.arange(Nn) + 1
+    eindex = np.arange(Ne) + 1
+    # COORDINATES
+    coords = [ np.linspace(0., dim[i], shape[i] + 1) for i in range(len(shape))]
+    coords = np.array(np.meshgrid(*coords))
+    coords = np.array([c.swapaxes(0,1).flatten("F") for c in coords]).T
+    if len(shape) == 2:
+        c = coords
+        coords = np.zeros((Nn, 3))
+        coords[:, :2] = c  
+    # CONNECTIVITY    
+    conn = _make_conn(shape)
+    # MESH INSTANCE
+    mesh = ag.mesh.Mesh(nlabels = nindex,
+                        coords  = coords,
+                        elabels = eindex,
+                        conn = conn,)
+    if len(shape) == 2: mesh.elements[("type", "argiope")] = "quad4"
+    if len(shape) == 3: mesh.elements[("type", "argiope")] = "hexa8"    
+    return mesh
+
 
 ################################################################################
 # TESTS

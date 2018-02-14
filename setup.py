@@ -18,6 +18,7 @@ setup(name='argiope',
           "matplotlib",
           "pandas",
           "jupyter",
-          "nbconvert"
+          "nbconvert",
+          "numba"
           ],
       )

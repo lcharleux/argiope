@@ -8,5 +8,6 @@ ipython>=0.12.1
 pandas>=0.16
 jupyter
 nbconvert
+numba
 
 
