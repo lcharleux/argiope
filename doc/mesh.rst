@@ -86,5 +86,10 @@ Parsers
 ===========
 
 .. autofunction:: argiope.mesh.read_msh
-   
+
+
+Mesh generation
+===================   
+
+.. autofunction:: argiope.mesh.structured_mesh
 

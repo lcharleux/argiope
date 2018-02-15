@@ -1175,13 +1175,21 @@ def _make_conn(shape):
 
 def structured_mesh(shape = (2,2,2), dim = (1.,1.,1.)):
     """
-    Returns a structured mesh.
+    Returns a structured mesh. 
     
     :arg shape: 2 or 3 integers (eg: shape = (10, 10, 10)).
     :type shape: tuple
     :arg dim: 2 or 3 floats (eg: dim = (4., 2., 1.))
     :type dim: tuple
-        
+    
+    .. note::
+
+       This function does not use GMSH for mesh generation.
+
+
+    
+    >>> import argiope as ag
+    >>> mesh = ag.mesh.structured_mesh(shape =(10,10,10), dim=(1.,1.,1.)))
     """
     # PREPROCESSING
     shape = np.array(shape)
