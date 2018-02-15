@@ -1210,25 +1210,3 @@ def structured_mesh(shape = (2,2,2), dim = (1.,1.,1.)):
     if len(shape) == 3: mesh.elements[("type", "argiope")] = "hexa8"    
     return mesh
 
-
-################################################################################
-# TESTS
-################################################################################
-"""
-if __name__ == '__main__':
-  import time
-  print("# READING MESH")
-  t0 = time.time()
-  m2 = read_msh("../doc/mesh/demo.msh")
-  t1 =  time.time()
-  print "# => {0:.2f}s".format(t1-t0)
-  
-  print "# EXPORTING MESH"
-  write_xdmf(m2, "test", dataformat = "HDF")
-     
-  t2 =  time.time()
-  
-
-  print "# => {0:.2f}s".format(t2-t1)  
-  
-"""    
