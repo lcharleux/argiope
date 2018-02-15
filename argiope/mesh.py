@@ -221,7 +221,8 @@ class Mesh(argiope.utils.Container):
       if v.dtype != 'bool':
         raise ValueError("Sets must be boolean array-likes.")   
       self.nodes["sets", k] = v
-        
+    self.nodes["sets", "all"] = True   
+  
   def set_elements(self, elabels = None, 
                          types = None, 
                          stypes = "", 
@@ -277,6 +278,8 @@ class Mesh(argiope.utils.Container):
       self.elements = self.elements.join(c)
       # Sets
       for k, v in esets.items(): self.elements[("sets", k, "")] = v
+      self.elements["sets", "all", ""] = True  
+      # Surfaces
       for k, v in surfaces.items():
         for fk, vv in v.items():
           self.elements[("surfaces", k, "s{0}".format(fk))] = vv
