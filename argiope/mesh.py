@@ -1173,7 +1173,7 @@ def _make_conn(shape):
                     counter += 1
     return conn   
 
-def StructuredMesh(shape = (2,2,2), dim = (1.,1.,1.)):
+def structured_mesh(shape = (2,2,2), dim = (1.,1.,1.)):
     """
     Returns a structured mesh.
     
@@ -1202,10 +1202,10 @@ def StructuredMesh(shape = (2,2,2), dim = (1.,1.,1.)):
     # CONNECTIVITY    
     conn = _make_conn(shape)
     # MESH INSTANCE
-    mesh = ag.mesh.Mesh(nlabels = nindex,
-                        coords  = coords,
-                        elabels = eindex,
-                        conn = conn,)
+    mesh = Mesh(nlabels = nindex,
+                coords  = coords,
+                elabels = eindex,
+                conn = conn,)
     if len(shape) == 2: mesh.elements[("type", "argiope")] = "quad4"
     if len(shape) == 3: mesh.elements[("type", "argiope")] = "hexa8"    
     return mesh
