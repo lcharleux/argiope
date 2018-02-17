@@ -42,3 +42,24 @@ def run_gmsh(gmsh_path = "gmsh", gmsh_space = 3, gmsh_options = "",
                        shell=True, 
                        stdout = subprocess.PIPE)  
   trash = p.communicate()    
+  
+
+################################################################################
+# MISC
+################################################################################ 
+  
+def list_to_string(l = range(200), width = 40, indent = "  "):
+    """
+    Converts a list-like to string with given line width.
+    """
+    l = [str(v) + "," for v in l]
+    counter = 0
+    out = "" + indent
+    for w in l:
+        s = len(w)
+        if counter + s > width: 
+            out += "\n" + indent
+            counter = 0
+        out += w
+        counter += s
+    return out.strip(",")  
