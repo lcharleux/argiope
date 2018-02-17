@@ -48,7 +48,7 @@ def run_gmsh(gmsh_path = "gmsh", gmsh_space = 3, gmsh_options = "",
 # MISC
 ################################################################################ 
   
-def list_to_string(l = range(200), width = 40, indent = "  "):
+def list_to_string(l = range(200), width = 80, indent = "  "):
     """
     Converts a list-like to string with given line width.
     """
