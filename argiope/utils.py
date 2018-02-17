@@ -62,4 +62,14 @@ def list_to_string(l = range(200), width = 80, indent = "  "):
             counter = 0
         out += w
         counter += s
-    return out.strip(",")  
+    return out.strip(",")
+    
+def _equation(nodes = (1, 2), dofs = (1, 1), coefficients = (1., 1.)):
+    """
+    Returns an Abaqus INP formated string for a given linear equation.
+    """
+    N = len(nodes)
+    out = "*EQUATION\n  {0}\n  ".format(N)
+    out += "\n  ".join([ ", ".join([ str(nodes[i]), str(dofs[i]), str(coefficients[i]) ]) for i in range(N)])
+    return out    
+      
