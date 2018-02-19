@@ -295,6 +295,14 @@ class Mesh(argiope.utils.Container):
     if fields != None:
       for field in fields: 
         self.fields.append(field)
+        
+  def add_fields(self, fields = None, **kwargs):
+    """
+    Add the fields into the list of fields.
+    """
+    if fields != None:
+      for field in fields: 
+        self.fields.append(field)
       
   def check_elements(self):
     """
