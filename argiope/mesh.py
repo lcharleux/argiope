@@ -1049,21 +1049,6 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
       labels.sort()
       if len(labels)!= 0:
         ss += "*{0}, {0}={1}\n".format(keyword, sk)
-        """
-        line = "  "
-        counter = 2
-        for l in labels:
-          counter += 1
-          s = "{0},".format(l)
-          if (len(s) + len(line) < maxwidth) and counter < maxwidth:
-            line += s
-          else:
-            ss += line + "\n  "
-            line = s
-            counter = 2
-        ss += line + "\n"
-        """
-        print(sk, labels)
         ss += argiope.utils.list_to_string(labels) + "\n"
     return ss.strip()           
 
