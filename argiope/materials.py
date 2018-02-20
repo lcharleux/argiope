@@ -71,21 +71,27 @@ class _ElasticPlastic(Elastic):
                                   sep = ",").strip())}).strip()
 
 
-class ElasticPerfectlyPlastic(_ElasticPlastic):
+class ElasticPerfectlyPlastic(Elastic):
   """
   A elastic perfectly plastic material.
   """
+  _template = "ElasticPerfectlyPlastic"
+  
   def __init__(self,  yield_stress = 0.01,
                       **kwargs):
      self.yield_stress = yield_stress
      super().__init__(**kwargs)
   
-  def get_plastic_table(self):
+  def write_inp(self):
      """
-     Calculates the plastic data
+     Returns the material definition as a string in Abaqus INP format.
      """
-     return pd.DataFrame({"stress": [self.yield_stress], 
-                          "plastic_strain": [0.]})
+     template = self.get_template()
+     return template.substitute({"class": self.__class__.__name__,
+                                 "label": self.label,
+                                 "young_modulus": self.young_modulus,
+                                 "poisson_ratio": self.poisson_ratio,
+                                 "yield_stress":self.yield_stress}).strip()
 
 
 

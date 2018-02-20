@@ -1,0 +1,8 @@
+********************************************************************************
+** ARGIOPE MATERIAL $class
+********************************************************************************
+*MATERIAL, NAME = $label
+*ELASTIC
+  $young_modulus, $poisson_ratio
+*PLASTIC
+  $yield_stress, 0.

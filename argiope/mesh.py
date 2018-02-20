@@ -1106,8 +1106,13 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
   section_output = ""
   for material, group in mesh.elements.groupby("materials"):
     slabel = "_MAT_{0}".format(material)
-    mesh.elements[("sets", slabel, "")] = False
-    mesh.elements.loc[group.index, ("sets", slabel, "")] = True
+    section_output += "*ELSET, ELSET=_MAT_{0}\n{1}\n".format(
+                 material,
+                 argiope.utils.list_to_string(group.index.values))
+    
+    
+    #mesh.elements[("sets", slabel, "")] = False
+    #mesh.elements.loc[group.index, ("sets", slabel, "")] = True
     if sections == "solid":
       section_output += "*SOLID SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n".format(
        material)
