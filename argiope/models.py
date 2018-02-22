@@ -44,22 +44,25 @@ class Model(argiope.utils.Container):
     self.make_directories()
     t0 = time.time()
     if self.verbose: 
-      print('<Running "{0}" using {1}>'.format(self.label, 
-                                               self.solver))  
+      print('#### RUNNING "{0}" USING SOLVER "{1}"'.format(self.label, 
+                                               self.solver.upper() ))  
     if self.solver == "abaqus":
       command = '{0} job={1} input={1}.inp interactive ask_delete=OFF'.format(
                 self.solver_path, 
                 self.label) 
+      
       process = subprocess.Popen(command, 
-                                 cwd = self.workdir, 
-                                 shell=True, 
-                                 stdout = subprocess.PIPE)
-      trash = process.communicate()
-    if self.verbose:
-      print(trash)  
+                                 cwd    = self.workdir, 
+                                 shell  = True, 
+                                 stdout = subprocess.PIPE,
+                                 stderr = subprocess.STDOUT)
+      for line in iter(process.stdout.readline, b''):
+         line = line.rstrip().decode('utf8')
+         print("    ", line)
+        
     t1 = time.time()
     if self.verbose: 
-      print('<Ran {0}: duration {1:.2f}s>'.format(self.label, t1 - t0))   
+      print('  => RAN {0}: DURATION = {1:.2f}s'.format(self.label, t1 - t0))   
   
   def run_postproc(self):
     """
@@ -67,22 +70,23 @@ class Model(argiope.utils.Container):
     """
     t0 = time.time()
     if self.verbose: 
-      print('<Post-Processing"{0}" using {1}>'.format(self.label, 
-                                               self.solver))  
+      print('#### POST-PROCESSING "{0}" USING POST-PROCESSOR "{1}"'.format(self.label, 
+                                               self.solver.upper()))  
     if self.solver == "abaqus":
       command = '{0} viewer noGUI={1}_abqpp.py'.format(self.solver_path, self.label)
-      print(command)
       process = subprocess.Popen( 
                 command, 
-                cwd = self.workdir,
-                shell=True,
-                stdout = subprocess.PIPE )
-      trash = process.communicate()
-    if self.verbose:
-      print(trash) 
+                cwd    = self.workdir,
+                shell  = True,
+                stdout = subprocess.PIPE,
+                stderr = subprocess.STDOUT)
+      
+      for line in iter(process.stdout.readline, b''):
+         line = line.rstrip().decode('utf8')
+         print("    ", line)
     t1 = time.time()
     if self.verbose: 
-      print('<Post-Processed {0}: duration {1:.2f}s>'.format(self.label, 
+      print('  => POST-PROCESSED {0}: DURATION = {1:.2f}s >'.format(self.label, 
                                                                   t1 - t0)) 
                                                                   
 ################################################################################ 
