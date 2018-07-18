@@ -39,7 +39,9 @@ def read_field_report(path, data_flag = "*DATA", meta_data_flag = "*METADATA"):
   out["frame"] = int(mdata["frame"])
   out["frame_value"] = float(mdata["frame_value"])
   out["part"] = mdata["instance"]
-  position_map = {"NODAL": "node", "ELEMENT": "element"}
+  position_map = {"NODAL": "node", 
+                  "ELEMENT_CENTROID": "element", 
+                  "WHOLE_ELEMENT": "element"}
   out["position"] = position_map[mdata["position"]]
   out["label"] = mdata["label"]  
   out["data"] = data
