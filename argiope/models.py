@@ -16,6 +16,7 @@ class Model(argiope.utils.Container):
                label, 
                parts, 
                steps, 
+               amplitude,
                materials, 
                solver = "abaqus", 
                solver_path = "",
@@ -24,6 +25,7 @@ class Model(argiope.utils.Container):
     self.label       = label
     self.parts       = parts
     self.steps       = steps
+    self.amplitude   = amplitude
     self.materials   = materials
     self.solver      = solver
     self.solver_path = solver_path
