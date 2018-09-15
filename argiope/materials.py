@@ -94,7 +94,35 @@ class ElasticPerfectlyPlastic(Elastic):
                                  "yield_stress":self.yield_stress}).strip()
 
 
-
+class ElasticPlasticRateDep(Elastic):
+  """
+  An elastic plastic rate dependent material.
+  """
+  _template = "ElasticPlasticRateDep"
+  
+  def __init__(self, yield_stress = 100,
+                    multiplier = 1.0e-6,
+                    exponent = 1.4,
+                    **kwargs):
+     self.yield_stress = yield_stress
+     self.multiplier = multiplier
+     self.exponent = exponent
+     super().__init__(**kwargs)
+  
+  def write_inp(self):
+     """
+     Returns the material definition as a string in Abaqus INP format.
+     """
+     template = self.get_template()
+     return template.substitute({"class":self.__class__.__name__,
+                                 "label":self.label,
+                                 "young_modulus":self.young_modulus,
+                                 "poisson_ratio":self.poisson_ratio,
+                                 "yield_stress":self.yield_stress,
+                                 "multiplier":self.multiplier,
+                                 "exponent":self.exponent}).strip()
+								 
+								 
 class _PowerLawHardening(_ElasticPlastic):
   """
   A power law hardening meta class.
