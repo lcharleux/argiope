@@ -5,6 +5,56 @@ from string import Template
 
 MODPATH = os.path.dirname(inspect.getfile(argiope))
 
+
+################################################################################
+# AMPLITUDE
+################################################################################  
+class Amplitude:
+  """
+  In order to control the load by a load vs time table.
+  """
+    
+  def __init__(self, type = "Exp",
+                     name = "",
+                     duration = 100,
+                     Nb_data_points = 100, 
+                     load0 = 10, 
+                     strain_rate0 = .01, **kwargs):
+    self.type = type
+    self.name = name  
+    self.duration = duration  
+    self.Nb_data_points = Nb_data_points
+    self.load0 = load0
+    self.strain_rate0 = strain_rate0  
+    
+  def call_amplitude_inp(self):
+    nm = self.name
+    if nm == "" :
+      return ""
+    else :
+      return ", amplitude=" + nm
+    
+  def get_amplitude_table(self):
+      """
+      Calculates the amplitude data
+      """
+      P0 = self.load0
+      eps_0 = self.strain_rate0
+      tmax = self.duration
+      Np = self.Nb_data_points
+      time = np.linspace(0., tmax, Np)
+      load = P0 * np.exp(2 * eps_0 * time) 
+      return pd.DataFrame({"time": time, 
+                            "load": load}) 
+
+  def write_inp(self):
+    nm = self.name
+    if nm == "" :
+      return "plante"
+    else :
+      return "*AMPLITUDE, name=" + self.name + "\n"+ self.get_amplitude_table()[["time", "load"]].to_csv(header = False,index = False,sep = ",").strip()
+  
+
 ################################################################################
 # MODEL DEFINITION
 ################################################################################
@@ -16,8 +66,8 @@ class Model(argiope.utils.Container):
                label, 
                parts, 
                steps, 
-               amplitude,
                materials, 
+               amplitude = Amplitude(),
                solver = "abaqus", 
                solver_path = "",
                workdir = "./workdir",
