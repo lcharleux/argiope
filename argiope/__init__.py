@@ -1,4 +1,4 @@
-__version__ = "0.3"
+__version__ = "0.4"
 
 try: 
   from . import utils, mesh, materials, models, abq 
