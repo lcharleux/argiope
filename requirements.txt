@@ -1,4 +1,3 @@
-include requirements.txt
 recursive-include argiope/templates
 
 matplotlib>=1.1.1rc
