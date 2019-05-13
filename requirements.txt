@@ -1,4 +1,3 @@
-recursive-include argiope/templates
 
 matplotlib>=1.1.1rc
 numpy>=1.6.1
