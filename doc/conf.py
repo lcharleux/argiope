@@ -70,7 +70,6 @@ extensions = ['sphinx.ext.autodoc',
 'sphinx.ext.mathjax',
 'sphinx.ext.viewcode',
 'sphinx.ext.doctest',
-'matplotlib.sphinxext.only_directives',
 'matplotlib.sphinxext.plot_directive',
 ]
 
@@ -231,12 +230,7 @@ html_show_sourcelink = True
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
-"""
-latex_documents = [
-  ('index', 'Outils_Numeriques_cours.tex', u'Outils Numeriques Cours',
-   u'Ludovic Charleux, Fabien Formosa', 'manual'),
-]
-"""
+
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.
 #latex_logo = None
@@ -265,9 +259,4 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-"""
-man_pages = [
-    ('index', 'Outils numériques', u'Outils Numériques Cours',
-     [u'Ludovic Charleux, Fabien Formosa'], 1)
-]
-"""
+
