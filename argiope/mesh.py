@@ -1092,7 +1092,7 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
   
   # ELEMENTS
   elements_output = ""
-  for etype, group in mesh.elements.groupby((("type", "solver", ""),)):
+  for etype, group in mesh.elements.groupby( [("type", "solver", ""), ]):
     els = group.conn.replace(0, np.nan).to_csv(header = False, 
                                                float_format='%.0f').split()
     elements_output += "*ELEMENT, TYPE={0}\n".format(etype)
