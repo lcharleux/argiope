@@ -1,11 +1,14 @@
 import pandas as pd
 import io, argiope
 
-def read_history_report(path, steps, x_name = None):
+def read_history_report(path, steps, x_name = "t"):
   """
   Reads an history output report.
   """
   data = pd.read_csv(path, delim_whitespace = True)
+  for col in data.columns:
+    data[col] = pd.to_numeric(data[col], errors = "coerce").fillna(0.)
+  
   if x_name != None:
     data[x_name] = data.X
     del data["X"]
@@ -14,7 +17,7 @@ def read_history_report(path, steps, x_name = None):
   t = 0.
   for i in range(len(steps)):
     dt = steps[i].duration
-    loc = data[data.t == t].index
+    loc = data[data[x_name] == t].index
     if len(loc) == 2:
       data.loc[loc[1]:, "step"] = i
     t += dt 
