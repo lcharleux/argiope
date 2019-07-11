@@ -39,7 +39,7 @@ class Model(argiope.utils.Container):
     """
     if os.path.isdir(self.workdir) == False: os.mkdir(self.workdir)
   
-  def run_simulation(self):
+  def run_simulation(self, nb_cpu=1, solver_option=''):
     """
     Runs the simulation.
     """
@@ -49,9 +49,11 @@ class Model(argiope.utils.Container):
       print('#### RUNNING "{0}" USING SOLVER "{1}"'.format(self.label, 
                                                self.solver.upper() ))  
     if self.solver == "abaqus":
-      command = '{0} job={1} input={1}.inp interactive ask_delete=OFF'.format(
+      command = '{0} job={1} input={1}.inp interactive ask_delete=OFF cpus={2} {3}'.format(
                 self.solver_path, 
-                self.label) 
+                self.label,
+                nb_cpu,
+                solver_option) 
       
       process = subprocess.Popen(command, 
                                  cwd    = self.workdir, 
