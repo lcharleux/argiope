@@ -1077,7 +1077,7 @@ def write_inp(mesh, path = None, maxwidth = 40, sections = "solid"):
   surf_output = []
   if "surfaces" in mesh.elements.keys():
     sk = mesh.elements.surfaces.keys()
-    for sindex in  np.unique(sk.labels[0]):
+    for sindex in  np.unique(sk.codes[0]):
       slabel = sk.levels[0][sindex]
       surface = mesh.elements.surfaces[slabel]
       if surface.values.sum() != 0:
