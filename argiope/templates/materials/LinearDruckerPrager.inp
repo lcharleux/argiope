@@ -1,0 +1,10 @@
+********************************************************************************
+** ARGIOPE MATERIAL $class
+*Material, name=$label
+********************************************************************************
+*ELASTIC
+$young_modulus, $poisson_ratio
+*DRUCKER PRAGER
+$friction_angle_beta, $shape_factor_K, $flow_angle_psi,
+*DRUCKER PRAGER HARDENING
+$yield_stress_d, 0.

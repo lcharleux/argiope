@@ -199,3 +199,42 @@ class PowerLin(_PowerLawHardening):
         stress = sy + K * plastic_strain**n
         return pd.DataFrame({"stress": stress,
                              "plastic_strain": plastic_strain})
+                             
+                             
+
+class LinearDruckerPrager(Material):
+    """
+    A linear Drucker-Prager model (no hardening).
+    """
+    _template = "LinearDruckerPrager"
+
+    def __init__(self, young_modulus=1., 
+                 poisson_ratio=0.3,
+                 yield_stress_d = 0.1, 
+                 friction_angle_beta = 0.,
+                 flow_angle_psi = 0.,
+                 shape_factor_K = 1., **kwargs):
+        self.young_modulus = young_modulus
+        self.poisson_ratio = poisson_ratio
+        self.yield_stress_d = yield_stress_d
+        self.friction_angle_beta = friction_angle_beta
+        self.flow_angle_psi = flow_angle_psi
+        self.shape_factor_K = shape_factor_K
+        
+        super().__init__(**kwargs)
+    
+    def write_inp(self):
+        """
+        Returns the material definition as a string in Abaqus INP format.
+        """
+        template = self.get_template()
+        return template.substitute({"class": self.__class__.__name__,
+                                    "label": self.label,
+                                    "young_modulus": self.young_modulus,
+                                    "poisson_ratio": self.poisson_ratio,
+                                    "yield_stress_d":self.yield_stress_d,
+                                    "friction_angle_beta": self.friction_angle_beta,
+                                    "flow_angle_psi":self.flow_angle_psi,
+                                    "shape_factor_K":self.shape_factor_K,
+                                     }).strip()        
+                                     
