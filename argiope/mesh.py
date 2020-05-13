@@ -810,10 +810,13 @@ def read_msh(path):
     nodes_coordinates = mesh.points
     nodes_labels = np.arange(len(nodes_coordinates)) + 1
     # ELEMENTS
-    elementMap = {"point": "point1",
+    elementMap = {"vertex": "point1",
                   "line" : "line2",
                   "triangle"  : "tri3",
                   "quad" : "quad4",
+                  "tetra" : "tetra4",
+                  "prism" : "prism6", # needs to be tested
+                  "hexa" : "hexa8" # needs to be tested
                  }
     cells = mesh.cells_dict
     cells_sets = mesh.cell_sets_dict
@@ -1202,7 +1205,9 @@ def write_inp(mesh, path=None, maxwidth=40, sections="solid"):
         if sections == "solid":
             section_output += "*SOLID SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n".format(
                 material)
-
+        if sections == "shell":
+                   section_output += "*SHELL SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n1.,\n".format(
+                material)
     # ELEMENTS SETS
     if "sets" in mesh.elements.columns.levels[0]:
         esets = set_to_inp(mesh.elements.sets.swaplevel(
