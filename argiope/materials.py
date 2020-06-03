@@ -4,6 +4,7 @@ import os
 import inspect
 import argiope
 from string import Template
+import textwrap
 
 MODPATH = os.path.dirname(inspect.getfile(argiope))
 
@@ -238,3 +239,48 @@ class LinearDruckerPrager(Material):
                                     "shape_factor_K":self.shape_factor_K,
                                      }).strip()        
                                      
+                                     
+class ElasticEngineering(Material):
+    """
+    An anistropic elastic material class using engineering constants.
+    """
+    def __init__(self, E1=1., E2=1., E3=1.,
+                 nu12=.3, nu13=.3, nu23=0.3,
+                 G12=.71, G13=.71, G23=.71,
+                 **kwargs):
+        self.E1 = E1
+        self.E2 = E2
+        self.E3 = E3
+        self.nu12 = nu12
+        self.nu13 = nu13
+        self.nu23 = nu23
+        self.G12 = G12
+        self.G13 = G13
+        self.G23 = G23
+        super().__init__(**kwargs)
+
+    def write_inp(self):
+        """
+        Returns the material definition as a string in Abaqus INP format.
+        """
+        template = """
+        ********************************************************************************
+        ** ARGIOPE MATERIAL $class
+        ********************************************************************************
+        *MATERIAL, NAME = $label
+        *ELASTIC, TYPE=ENGINEERING CONSTANTS
+          $E1, $E2, $E3, $nu12, $nu13, $nu23, $G12, $G13,
+          $G23
+        """
+        template = Template(textwrap.dedent(template).strip())
+        return template.substitute({"class": self.__class__.__name__,
+                                    "label": self.label,
+                                    "E1": self.E1,
+                                    "E2": self.E2,
+                                    "E3": self.E3,
+                                    "nu12": self.nu12,
+                                    "nu13": self.nu13,
+                                    "nu23": self.nu23,
+                                    "G12": self.G12,
+                                    "G13": self.G13,
+                                    "G23": self.G23}).strip()                                     
