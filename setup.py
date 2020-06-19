@@ -19,6 +19,7 @@ setup(name='argiope',
           "pandas",
           "jupyter",
           "nbconvert",
-          "numba"
+          "numba",
+          "meshio"
           ],
       )

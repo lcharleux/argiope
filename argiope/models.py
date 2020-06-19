@@ -28,7 +28,8 @@ class Model(argiope.utils.Container):
                  solver="abaqus",
                  solver_path="",
                  workdir="./workdir",
-                 verbose=False):
+                 verbose=False,
+                 cpus = 1):
         self.label = label
         self.parts = parts
         self.steps = steps
@@ -38,6 +39,7 @@ class Model(argiope.utils.Container):
         self.solver_path = solver_path
         self.workdir = workdir
         self.verbose = verbose
+        self.cpus = cpus
         self.data = {}
 
     def make_directories(self):
@@ -57,9 +59,10 @@ class Model(argiope.utils.Container):
             print('#### RUNNING "{0}" USING SOLVER "{1}"'.format(self.label,
                                                                  self.solver.upper()))
         if self.solver == "abaqus":
-            command = '{0} job={1} input={1}.inp interactive ask_delete=OFF'.format(
+            command = '{0} job={1} input={1}.inp cpus={2} interactive ask_delete=OFF'.format(
                       self.solver_path,
-                      self.label)
+                      self.label
+                      self.cpus)
 
             process = subprocess.Popen(command,
                                        cwd=self.workdir,

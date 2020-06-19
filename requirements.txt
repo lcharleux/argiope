@@ -7,5 +7,6 @@ pandas>=0.16
 jupyter
 nbconvert
 numba
+meshio
 
 
