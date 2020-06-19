@@ -61,7 +61,7 @@ class Model(argiope.utils.Container):
         if self.solver == "abaqus":
             command = '{0} job={1} input={1}.inp cpus={2} interactive ask_delete=OFF'.format(
                       self.solver_path,
-                      self.label
+                      self.label,
                       self.cpus)
 
             process = subprocess.Popen(command,
