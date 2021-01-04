@@ -829,10 +829,13 @@ def read_msh(path):
         elements_types +=  [ etype_ag for i in range(len(conn))] 
         # ELEMENT SETS
         for skey, sdata in cells_sets.items():
-           elements_sets_raw[skey].append(np.zeros(len(conn), dtype = bool))  
-           for setype, loc in sdata.items():
-                if setype == etype:
-                    elements_sets_raw[skey][-1][loc] = True      
+           elements_sets_raw[skey].append(np.zeros(len(conn), dtype = bool))
+           if  skey == "gmsh:bounding_entities":
+               pass 
+           else:             
+               for setype, loc in sdata.items():           
+                    if setype == etype:
+                        elements_sets_raw[skey][-1][loc] = True      
 
     elements_sets = {}
     for skey, data in elements_sets_raw.items():
