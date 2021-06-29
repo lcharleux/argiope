@@ -239,7 +239,14 @@ class Mesh(argiope.utils.Container):
                 raise ValueError("Sets must be boolean array-likes.")
             self.nodes["sets", k] = v
         self.nodes["sets", "all"] = True
-
+    
+    def add_node(self,x,y,z=0):
+        last_node = len(self.nodes)
+        self.nodes.loc[last_node+1] = self.nodes.loc[last_node]
+        self.nodes.loc[last_node+1,('coords','x')] = x
+        self.nodes.loc[last_node+1,('coords','y')] = y
+        self.nodes.loc[last_node+1,('coords','z')] = z
+        
     def set_elements(self, elabels=None,
                      types=None,
                      stypes="",
