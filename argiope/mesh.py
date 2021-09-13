@@ -239,7 +239,14 @@ class Mesh(argiope.utils.Container):
                 raise ValueError("Sets must be boolean array-likes.")
             self.nodes["sets", k] = v
         self.nodes["sets", "all"] = True
-
+    
+    def add_node(self,x,y,z=0):
+        last_node = len(self.nodes)
+        self.nodes.loc[last_node+1] = self.nodes.loc[last_node]
+        self.nodes.loc[last_node+1,('coords','x')] = x
+        self.nodes.loc[last_node+1,('coords','y')] = y
+        self.nodes.loc[last_node+1,('coords','z')] = z
+        
     def set_elements(self, elabels=None,
                      types=None,
                      stypes="",
@@ -829,10 +836,13 @@ def read_msh(path):
         elements_types +=  [ etype_ag for i in range(len(conn))] 
         # ELEMENT SETS
         for skey, sdata in cells_sets.items():
-           elements_sets_raw[skey].append(np.zeros(len(conn), dtype = bool))  
-           for setype, loc in sdata.items():
-                if setype == etype:
-                    elements_sets_raw[skey][-1][loc] = True      
+           elements_sets_raw[skey].append(np.zeros(len(conn), dtype = bool))
+           if  skey == "gmsh:bounding_entities":
+               pass 
+           else:             
+               for setype, loc in sdata.items():           
+                    if setype == etype:
+                        elements_sets_raw[skey][-1][loc] = True      
 
     elements_sets = {}
     for skey, data in elements_sets_raw.items():
