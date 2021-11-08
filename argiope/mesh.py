@@ -1020,7 +1020,7 @@ def write_xdmf(mesh, path, dataformat="XML"):
         "prism6": 8,
         "hexa8":  9}
     # REFERENCES
-    nodes, elements = mesh.nodes.data, mesh.elements.data
+    nodes, elements = mesh.nodes, mesh.elements
     fields = mesh.fields
     # NUMBERS
     Ne, Nn = len(elements), len(nodes)
@@ -1029,21 +1029,25 @@ def write_xdmf(mesh, path, dataformat="XML"):
     nodes_map[nodes.index] = np.arange(len(nodes.index))
     nodes_map[0] = -1
     # ELEMENTS
-    cols = ["n{0}".format(i) for i in range(elements.shape[1]-1)]
-    connectivities = mesh.elements.data[cols].as_matrix()
+    cols = ["n{0}".format(i) for i in range(elements.conn.shape[1])]
+    connectivities = mesh.elements.conn[cols].values
     connectivities[np.isnan(connectivities)] = 0
     connectivities = connectivities.astype(np.int32)
     connectivities = nodes_map[connectivities]
     labels = np.array(elements.index)
-    etypes = np.array([cell_map[t] for t in elements.etype])
+    etypes = np.array([cell_map[t] for t in elements.type.argiope])
     lconn = Ne + (connectivities != -1).sum()
     # FIELDS
     fields_string = ""
     field_data = {}
-    for tag, field in fields.items():
+    for field in fields:
+        tag = field.label
         field_data[tag] = {}
         field.data.sort_index(inplace=True)
-        fshape = field.data.shape[1]
+        if len(field.data.shape)==1:
+            fshape = 1
+        else:
+            fshape = field.data.shape[1]
         if fshape == 1:
             ftype = "Scalar"
         elif fshape == 3:
@@ -1065,9 +1069,9 @@ def write_xdmf(mesh, path, dataformat="XML"):
             field.data["v23"] = np.zeros_like(field.data.index)
             fields[tag] = field
             # BACK TO NORMAL
-        if field.metadata.position == "Nodal":
+        if field.position == "node":
             position = "Node"
-        if field.metadata.position == "Element":
+        if field.position == "element":
             position = "Cell"
         field_data[tag]["TAG"] = tag
         field_data[tag]["ATTRIBUTETYPE"] = ftype
@@ -1078,9 +1082,9 @@ def write_xdmf(mesh, path, dataformat="XML"):
     if dataformat == "XML":
         # NODES
         nodes_string = "\n".join([11*" " + "{0} {1} {2}".format(
-                                  n.x,
-                                  n.y,
-                                  n.z)
+                                  n.coords.x,
+                                  n.coords.y,
+                                  n.coords.z)
                                   for i, n in nodes.iterrows()])
         # ELEMENTS
         elements_string = ""
@@ -1091,7 +1095,8 @@ def write_xdmf(mesh, path, dataformat="XML"):
             elements_string += " ".join([str(i) for i in c]) + "\n"
         elements_strings = elements_string[:-1]
         # FIELDS
-        for tag, field in fields.items():
+        for field in fields:
+            tag = field.label
             fdata = field.data.to_csv(sep=" ",
                                       index=False,
                                       header=False).split("\n")
@@ -1140,7 +1145,7 @@ def write_xdmf(mesh, path, dataformat="XML"):
         NODE_PATH=nodes_string,
         DATAFORMAT=dataformat,
         ATTRIBUTES=fields_string)
-    open(path + ".xdmf", "wb").write(pattern)
+    open(path + ".xdmf", "w").write(pattern)
 
 
 def write_inp(mesh, path=None, maxwidth=40, sections="solid"):
