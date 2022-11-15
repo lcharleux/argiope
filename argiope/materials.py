@@ -201,7 +201,23 @@ class PowerLin(_PowerLawHardening):
         return pd.DataFrame({"stress": stress,
                              "plastic_strain": plastic_strain})
                              
-                             
+class TabularHardening(_ElasticPlastic):
+    """
+    A Tabular hardening law
+    """
+
+    def __init__(self, plastic_strain= "",stress="stress",
+                 **kwargs):
+        self.plastic_strain = plastic_strain
+        self.stress = stress   
+        super().__init__(**kwargs)
+
+    def get_plastic_table(self):
+        """
+        get_plastic_table 
+        """
+        return pd.DataFrame({"stress": self.stress,
+                             "plastic_strain": self.plastic_strain})                             
 
 class LinearDruckerPrager(Material):
     """
