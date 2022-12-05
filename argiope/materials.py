@@ -52,6 +52,32 @@ class Elastic(Material):
                                     "young_modulus": self.young_modulus,
                                     "poisson_ratio": self.poisson_ratio}).strip()
 
+class ThermoElastic(Material):
+    """
+    An isotropic elastic material class.
+    """
+    _template = "ThermoElastic"
+
+    def __init__(self, young_modulus=1., poisson_ratio=0.3,density=7800., conductivity=40.,specific_heat = 350., **kwargs):
+        self.young_modulus = young_modulus
+        self.poisson_ratio = poisson_ratio
+        self.density = density
+        self.conductivity = conductivity
+        self.specific_heat = specific_heat
+        super().__init__(**kwargs)
+
+    def write_inp(self):
+        """
+        Returns the material definition as a string in Abaqus INP format.
+        """
+        template = self.get_template()
+        return template.substitute({"class": self.__class__.__name__,
+                                    "label": self.label,
+                                    "young_modulus": self.young_modulus,
+                                    "poisson_ratio": self.poisson_ratio,
+                                    "conductivity": self.conductivity,
+                                    "density": self.density,
+                                    "specific_heat": self.specific_heat}).strip()
 
 class _ElasticPlastic(Elastic):
     """
