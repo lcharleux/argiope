@@ -607,8 +607,8 @@ class Mesh(argiope.utils.Container):
         Returns fields metadata as a dataframe.
         """
         return (pd.concat([f.metadata() for f in self.fields], axis=1)
-                .transpose()
-                .sort_values(["step_num", "frame", "label", "position"]))
+                .transpose())
+
 
 
 ################################################################################
@@ -1100,7 +1100,7 @@ def write_xdmf(mesh, path, dataformat="XML"):
             fdata = field.data.to_csv(sep=" ",
                                       index=False,
                                       header=False).split("\n")
-            fdata = [11 * " " + l for l in fdata]
+            fdata = [11 * " " + l.split('\r')[0] for l in fdata]
             fdata = "\n".join(fdata)
             field_data[tag]["DATA"] = fdata
             fields_string += attribute_pattern.substitute(**field_data[tag])
