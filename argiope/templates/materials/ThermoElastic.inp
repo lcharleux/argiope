@@ -1,0 +1,12 @@
+********************************************************************************
+** ARGIOPE MATERIAL $class
+********************************************************************************
+*MATERIAL, NAME = $label
+*ELASTIC
+  $young_modulus, $poisson_ratio
+*CONDUCTIVITY
+  $conductivity,
+*DENSITY
+  $density,
+*SPECIFIC HEAT
+  $specific_heat,
