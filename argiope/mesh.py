@@ -1256,7 +1256,7 @@ def write_inp(mesh, path=None, maxwidth=40, sections="solid"):
 # MESHERS
 ################################################################################
 
-@numba.jit
+#@numba.njit
 def _make_conn(shape):
     """
     Connectivity builder using Numba for speed boost.
