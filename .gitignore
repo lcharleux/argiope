@@ -24,4 +24,4 @@ doc/_build/*
 doc/notebooks_rst/*
 dist/*
 build/*
-argiope.egg-info/*
+argiope.egg-info*
