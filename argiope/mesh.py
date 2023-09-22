@@ -550,7 +550,7 @@ class Mesh(argiope.utils.Container):
             nodes.sets[tag].loc[element_surfaces.values.flatten()]
             .values.reshape(element_surfaces.shape)
             .prod(axis=1)
-            .astype(np.bool),
+            .astype(np.bool_),
             index=element_surfaces.index).unstack().fillna(False)
         for k in surf.keys():
             self.elements["surfaces", tag,
@@ -1200,7 +1200,7 @@ def write_inp(mesh, path=None, maxwidth=40, sections="solid"):
     for etype, group in mesh.elements.groupby([("type", "solver", ""), ]):
         els = group.conn.replace(0, np.nan).to_csv(header=False,
                                                    float_format='%.0f').split()
-        elements_output += "*ELEMENT, TYPE={0}\n".format(etype[0])
+        elements_output += "*ELEMENT, TYPE={0}\n".format(etype)
         elements_output += ("\n".join(["  " + s.strip().strip(",").
                                        replace(",", ", ") for s in els]))
         elements_output += "\n"
