@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0", "setuptools-scm", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "argiope"
+version = "0.1.0"  # Replace this with your actual version
+description = "A framework for simpler finite element processing"
+authors = [
+    { name = "Ludovic Charleux", email = "ludovic.charleux@univ-smb.fr" },
+    { name = "Emile Roux" }
+]
+license = { text = "GPL v3" }
+readme = "README.md"
+requires-python = ">=3.6"
+# homepage = "https://github.com/lcharleux/argiope"
+
+# [project.urls]
+# Repository = "https://github.com/lcharleux/argiope"
+
+# Dependencies must be in a TOML array
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "numba",
+    "meshio"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["argiope", "argiope.abq"]
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
