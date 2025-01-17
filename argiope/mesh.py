@@ -372,6 +372,7 @@ class Mesh(argiope.utils.Container):
         out = []
         for etype, group in elements.groupby([("type", "argiope", "")]):
             try:
+                etype = etype[0]
                 output_maps = getattr(ELEMENTS[etype], into)
                 for om in range(len(output_maps)):
                     oshape = len(output_maps[om])
