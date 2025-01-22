@@ -5,6 +5,8 @@ import subprocess
 import argiope
 import os
 import inspect
+import shutil
+import importlib.resources
 
 MODPATH = os.path.dirname(inspect.getfile(argiope))
 ################################################################################
@@ -100,3 +102,10 @@ def _unsorted_set(df, label, **kwargs):
     out = "*NSET, NSET={0}, UNSORTED\n".format(label)
     labels = df.index.values
     return out + argiope.utils.list_to_string(labels, **kwargs)
+
+def copy_abqpostproc(workdir):
+    """
+    Copies the abqpostproc.py file to the workdir.
+    """
+    module_path = importlib.resources.files(argiope)
+    shutil.copyfile(f"{module_path}/assets/abqpostproc.py", f"{workdir}/abqpostproc.py")

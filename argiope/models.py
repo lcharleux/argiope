@@ -103,7 +103,11 @@ class Model(argiope.utils.Container):
         if self.verbose:
             print('  => POST-PROCESSED {0}: DURATION = {1:.2f}s >'.format(self.label,
                                                                           t1 - t0))
-
+    def copy_abqpostproc(self):
+        """
+        Copies the abqpostproc.py file to the workdir.
+        """
+        argiope.utils.copy_abqpostproc(self.workdir)    
 ################################################################################
 
 

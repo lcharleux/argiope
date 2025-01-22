@@ -5,10 +5,11 @@ def read_history_report(path, steps, x_name = "t"):
   """
   Reads an history output report.
   """
-  data = pd.read_csv(path, delim_whitespace = True)
+  data = pd.read_csv(path, sep='\s+')
   for col in data.columns:
     data[col] = pd.to_numeric(data[col], errors = "coerce").fillna(0.)
-  
+  data = data.copy()
+
   if x_name != None:
     data[x_name] = data.X
     del data["X"]

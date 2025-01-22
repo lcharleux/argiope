@@ -25,3 +25,5 @@ doc/notebooks_rst/*
 dist/*
 build/*
 argiope.egg-info*
+argiope/.ipynb_checkpoints/mesh-checkpoint.py
+doc/examples/abq/abqpostproc/workdir/abpostproc.py

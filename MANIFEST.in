@@ -1,3 +1,4 @@
 include *.txt *.rst
 recursive-include doc *.rst *.ipynb
 recursive-include argiope/templates *.*
+include argiope/assets/abqpostproc.py
