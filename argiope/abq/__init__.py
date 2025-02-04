@@ -1,4 +1,2 @@
-try:
-  from . import pypostproc
-except:
-  pass  
+from . import pypostproc
+

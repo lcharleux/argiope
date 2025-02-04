@@ -383,7 +383,7 @@ class Mesh(argiope.utils.Container):
                                         ].reshape(len(conn), oshape))
                     df = pd.DataFrame(data=data,
                                       columns=columns,
-                                      index=conn.index).stack((0, 1))
+                                      index=conn.index).stack((0, 1), future_stack=True)
                     out.append(df)
             except:
                 print("Can not extract '{0}' from '{1}'".format(into, etype))
@@ -403,6 +403,7 @@ class Mesh(argiope.utils.Container):
         elements = self.elements
         out = []
         for etype, group in self.elements.groupby([("type", "argiope", "")]):
+            etype = etype[0]
             etype_info = ELEMENTS[etype]
             simplices_info = etype_info.simplices
             index = group.index
@@ -528,9 +529,9 @@ class Mesh(argiope.utils.Container):
         Makes a node set from an element set.
         """
         nodes, elements = self.nodes, self.elements
-        loc = (elements.conn[elements[("sets", tag, "")]]
-               .stack().stack().unique())
-        loc = loc[loc != 0]
+        loc = elements.conn[elements[("sets", tag, "")]].values.astype(np.int32).flatten() #.stack(future_stack=False).stack(future_stack=False).unique()
+        loc = np.unique(loc)
+        loc = loc[loc>0]
         nodes[("sets", tag)] = False
         nodes.loc[loc, ("sets", tag)] = True
 
@@ -552,7 +553,7 @@ class Mesh(argiope.utils.Container):
             .values.reshape(element_surfaces.shape)
             .prod(axis=1)
             .astype(np.bool_),
-            index=element_surfaces.index).unstack().fillna(False)
+            index=element_surfaces.index).unstack().astype(float).fillna(0).astype(bool)
         for k in surf.keys():
             self.elements["surfaces", tag,
                           "f{0}".format(k[1]+1)] = surf.loc[:, k]
@@ -583,9 +584,9 @@ class Mesh(argiope.utils.Container):
             coords = nodes.coords[["x", "y"]].loc[conn].values.reshape(
                 len(group), nvert, 2)
             verts += list(coords)
-        verts = np.array(verts)
-        verts = verts[np.argsort(index)]
-        return collections.PolyCollection(verts, *args, **kwargs)
+    
+        verts2 = [verts[i] for i in np.argsort(index)]
+        return collections.PolyCollection(verts2, *args, **kwargs)
 
     def to_triangulation(self):
         """
@@ -1257,6 +1258,7 @@ def write_inp(mesh, path=None, maxwidth=40, sections="solid"):
     # ELEMENTS
     elements_output = ""
     for etype, group in mesh.elements.groupby([("type", "solver", ""), ]):
+        etype = etype[0]
         els = group.conn.replace(0, np.nan).to_csv(header=False,
                                                    float_format='%.0f').split()
         elements_output += "*ELEMENT, TYPE={0}\n".format(etype)
