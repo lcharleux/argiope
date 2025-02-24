@@ -49,6 +49,7 @@ def read_field_report(path, data_flag = "*DATA", meta_data_flag = "*METADATA"):
   out["position"] = position_map[mdata["position"]]
   out["label"] = mdata["label"]  
   out["data"] = data
+  
   field_class = getattr(argiope.mesh, mdata["argiope_class"])
   return field_class(**out)
                                    

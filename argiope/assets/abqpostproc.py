@@ -71,7 +71,10 @@ def write_field_report(odb, path, label, argiope_class, variable, instance, outp
   data = "\n".join([",".join(line.split()) for line in data if len(line) != 0])
   # HEADER
   header = str(output_position).lower() + "," 
-  header += ",".join([v[1] for v in variable[0][2]]) + "\n"
+  if len(variable[0]) == 3:
+    header += ",".join([v[1] for v in variable[0][2]]) + "\n"
+  else:
+    header += variable[0][0] + "\n"
   # METADATA
   metadata = (
           ("label", label),
