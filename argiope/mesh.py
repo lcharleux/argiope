@@ -216,29 +216,30 @@ class Mesh(argiope.utils.Container):
         :type nsets: dict
         """
         # DATA PREPROCESSING
-        nlabels = np.array(nlabels).astype(np.int64)
-        coords = np.array(coords).astype(np.float64)
-        if (nlabels < 0).sum() > 0:
-            raise ValueError("Node labels must be strictly positive.")
-        if len(nlabels) != len(coords):
-            raise ValueError(
-                "'nlabels' and 'coords' must have the same length")
-        if coords.shape[1] != 3:
-            raise ValueError("coordinates must be 3 dimensional.")
-        # ATTRIBUTES CREATION
-        columns = pd.MultiIndex.from_tuples((("coords", "x"),
-                                             ("coords", "y"),
-                                             ("coords", "z")))
-        self.nodes = pd.DataFrame(data=coords,
-                                  columns=columns,
-                                  index=nlabels)
-        self.nodes.index.name = "node"
-        for k, v in nsets.items():
-            v = np.array(v)
-            if v.dtype != 'bool':
-                raise ValueError("Sets must be boolean array-likes.")
-            self.nodes["sets", k] = v
-        self.nodes["sets", "all"] = True
+        if len(nlabels) != 0:
+            nlabels = np.array(nlabels).astype(np.int64)
+            coords = np.array(coords).astype(np.float64)
+            if (nlabels < 0).sum() > 0:
+                raise ValueError("Node labels must be strictly positive.")
+            if len(nlabels) != len(coords):
+                raise ValueError(
+                    "'nlabels' and 'coords' must have the same length")
+            if coords.shape[1] != 3:
+                raise ValueError("coordinates must be 3 dimensional.")
+            # ATTRIBUTES CREATION
+            columns = pd.MultiIndex.from_tuples((("coords", "x"),
+                                                ("coords", "y"),
+                                                ("coords", "z")))
+            self.nodes = pd.DataFrame(data=coords,
+                                    columns=columns,
+                                    index=nlabels)
+            self.nodes.index.name = "node"
+            for k, v in nsets.items():
+                v = np.array(v)
+                if v.dtype != 'bool':
+                    raise ValueError("Sets must be boolean array-likes.")
+                self.nodes["sets", k] = v
+            self.nodes["sets", "all"] = True
     
     def add_node(self,x,y,z=0):
         last_node = len(self.nodes)
@@ -285,6 +286,8 @@ class Mesh(argiope.utils.Container):
                 Warning)
             self.elements = None
         else:
+            if conn is None:
+                raise ValueError("Connectivity table must be provided.")
             columns = pd.MultiIndex.from_tuples([("type", "argiope", "")])
             self.elements = pd.DataFrame(data=types,
                                          columns=columns,
@@ -1151,7 +1154,7 @@ def write_xdmf(mesh, path, dataformat="XML"):
     open(path + ".xdmf", "w").write(pattern)
 
 
-def write_inp(mesh, path=None, maxwidth=40, sections="solid"):
+def write_inp(mesh, path=None, maxwidth=40, sections="solid", section_thickness=1.):
     """
     Exports the mesh to the INP format.
     """
@@ -1214,19 +1217,24 @@ def write_inp(mesh, path=None, maxwidth=40, sections="solid"):
     # MATERIALS
     section_output = ""
     for material, group in mesh.elements.groupby("materials"):
-        slabel = "_MAT_{0}".format(material)
-        section_output += "*ELSET, ELSET=_MAT_{0}\n{1}\n".format(
-            material,
-            argiope.utils.list_to_string(group.index.values))
+        if material != "":
+            slabel = "_MAT_{0}".format(material)
+            section_output += "*ELSET, ELSET=_MAT_{0}\n{1}\n".format(
+                material,
+                argiope.utils.list_to_string(group.index.values))
 
         #mesh.elements[("sets", slabel, "")] = False
         #mesh.elements.loc[group.index, ("sets", slabel, "")] = True
         if sections == "solid":
-            section_output += "*SOLID SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n".format(
-                material)
-        if sections == "shell":
-                   section_output += "*SHELL SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n1.,\n".format(
-                material)
+            section_output += "*SOLID SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n{1},\n".format(
+                material, section_thickness)
+        elif sections == "shell":
+                   section_output += "*SHELL SECTION, ELSET=_MAT_{0}, MATERIAL={0}\n{1},\n".format(
+                material, section_thickness)
+        elif sections == None:
+            pass
+        else:
+            raise ValueError("sections must be 'solid', 'shell' or None")
     # ELEMENTS SETS
     if "sets" in mesh.elements.columns.levels[0]:
         esets = set_to_inp(mesh.elements.sets.swaplevel(
