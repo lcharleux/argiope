@@ -580,7 +580,7 @@ class Mesh(argiope.utils.Container):
         verts = []
         index = []
         for etype, group in elements.groupby([("type", "argiope", "")]):
-            etype = etype[0]
+            etype = etype[0]       
             index += list(group.index)
             nvert = ELEMENTS[etype].nvert
             conn = group.conn.values[:, :nvert].flatten()
@@ -1008,7 +1008,64 @@ def read_inp(path):
 ################################################################################
 # WRITERS
 ################################################################################
+def write_xdmf_meshio(mesh, path, data_format='XML'):
+    """
+    Export the mesh to XDMF format using MESHIO.
+    Features :
+    - Export 2D mesh (tri3, quad4)
+    - Export fields at nodes and elements
+    - The frame number is used as the time step
 
+    Remark :
+    - to  read the mesh in Paraview, use XDMF3 reader T
+    - 2D Vector fields are exported as 3D fields with the third component set to 0
+    - Tensor fields are exported as not been tested
+
+    """
+    # points from the mesh object
+    points = mesh.nodes.coords.values 
+    # conn table from the mesh object
+     # MAPPINGS
+    cell_map = {
+        "tri3":   "triangle",
+        "quad4":  "quad",
+    }
+    # loop over let types
+    cells = {}
+    for etype, group in mesh.elements.groupby([("type", "argiope", "")]):
+        etype = etype[0]
+        nvert = ELEMENTS[etype].nvert
+        if etype in cell_map.keys():
+            cells[cell_map[etype]] = group.conn.values[:, :nvert]-1
+
+
+    with meshio.xdmf.TimeSeriesWriter(path,data_format=data_format) as writer:
+        print("Writing XDMF file at {0}".format(path))
+        writer.write_points_cells(points, cells)
+        fields_metadata = mesh.fields_metadata()
+
+        # groupe by frame
+        for frame, group in fields_metadata.groupby("frame"):
+            point_data = {}
+            cell_data = {}
+            for i, row in group.iterrows():
+                data = mesh.fields[i].data
+                label = row["label"]
+                position = row["position"]
+                dshape = mesh.fields[i].data.columns.size
+                if dshape == 2: #vetctor 2D
+                    data['v3'] = np.zeros_like(data['v1'])
+                
+                if position == "node":
+                    point_data[label] = data.values
+                if position == "element":
+                    cell_data[label] = data.values
+                
+            writer.write_data(frame, point_data = point_data, cell_data=cell_data)
+        print("Done, use Paraview to visualize the mesh, with XDMF3 reader T")
+
+
+  
 
 def write_xdmf(mesh, path, dataformat="XML"):
     """

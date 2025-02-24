@@ -15,5 +15,5 @@ Argiope is a pythonic framework for simpler finite element processing. It provid
 You can install Argiope using pip:
 
 ```sh
-pip install git+https https://github.com/lcharleux/argiope.git
+pip install git+https://github.com/lcharleux/argiope.git
 ```
